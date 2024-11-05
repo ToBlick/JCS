@@ -25,7 +25,7 @@ def _trig_fn_x(x, k, a, b):
     _val2 = jax.lax.cond(k == 0, r1, r2, x)
     return _val * _val2
 
-def get_trig_fn_x(n, a, b):
+def get_trig_fn_x(K, a, b):
     return lambda x, k: _trig_fn_x(x, k, a, b)
 
 def _binom(n, m):
@@ -66,12 +66,6 @@ def _lin_to_cart(i, shape):
     return jnp.unravel_index(i, shape)
 
 def get_basis_fn(bases, shape):
-    d = len(shape)
-    _d = jnp.arange(d, dtype=jnp.int32)
-    
-    # def _basis_fn(x, k, j):
-    #     return bases[j](x[j], k)
-    
     # TODO: vmap?
     def basis_fn(x, k):
         d = len(x)

@@ -434,3 +434,6 @@ interactive = widgets.interactive(update, i=i_slider)
 display(interactive)
 
 # %%
+
+def ς(t):
+    return 1 + 0.1 * jnp.sin(2*jnp.pi * t)
