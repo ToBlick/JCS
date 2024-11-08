@@ -17,7 +17,7 @@ import time
 
 # %%
 ### Constants
-κ = 1.5
+κ = 1.9
 q = 1.5
 B0 = 1.0
 R0 = 2.0
@@ -41,13 +41,13 @@ def Psi(x):
 
 # Define the outer flux surface
 def f(x):
-    T = Psi(jnp.array([R0 - 0.75, Φ, 0.0]))
+    T = Psi(jnp.array([R0 - 0.7, Φ, 0.0]))
     return Psi(x) - T
 
 f_sq = lambda x: f(x)**2
 
 ### Quadrature grid
-Omega = ((1., 3.), (-1., 1.))
+Omega = ((1., 3.), (-1.5, 1.5))
 nx = 256
 _R = jnp.linspace(*Omega[0], nx)
 _Φ = jnp.array([Φ])
@@ -164,4 +164,3 @@ plt.xlabel(r'$\theta$')
 plt.ylabel(r'$\varsigma(\theta)$')
 plt.show()
 
-# %%

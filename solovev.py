@@ -23,6 +23,8 @@ B0 = 1.0
 R0 = 2.0
 μ0 = 1.0
 
+π = jnp.pi
+
 χ = 1.0 # friction coefficient
 γ = 1.3 # adiabatic index
         

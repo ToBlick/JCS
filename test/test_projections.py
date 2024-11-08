@@ -2,13 +2,9 @@ import unittest
 from mhd_equilibria.bases import *
 from mhd_equilibria.projections import *
 import numpy.testing as npt
-import numpy as np
 from jax import numpy as jnp
-from jax import vmap, jit, grad
 import jax
-from functools import partial
-
-import matplotlib.pyplot as plt
+jax.config.update("jax_enable_x64", True)
 
 class ProjectionTests(unittest.TestCase):
     
@@ -26,15 +22,14 @@ class ProjectionTests(unittest.TestCase):
         x = jnp.array(jnp.meshgrid(_x, _x, _x)) # shape 3, nx, nx, nx
         x = x.transpose(1, 2, 3, 0).reshape(nx**3, 3)
         w = h**3
-        
-        J = lambda x: 1.0        
-        npt.assert_allclose(l2_product(f, g, lambda x: 1.0, x, w), 7/12, rtol=1e-4)
+             
+        npt.assert_allclose(l2_product(f, g, x, w), 7/12, rtol=1e-4)
         
         def F(x):
             return x
         def G(x):
             return x
-        npt.assert_allclose(l2_product(F, G, J, x, w), 1.0, rtol=1e-4)
+        npt.assert_allclose(l2_product(F, G, x, w), 1.0, rtol=1e-4)
         
         def f(x):
             return x[0]**3 * jnp.sin(2*jnp.pi*x[1]/L) + jnp.sin(4*jnp.pi*x[2]/L) + 4 * x[0]**2 * jnp.sin(8*jnp.pi*x[2]/L)
@@ -44,9 +39,9 @@ class ProjectionTests(unittest.TestCase):
         shape = (n1, n2, n3)
         basis_fn = get_basis_fn(_bases, shape) # basis_fn(x, k)
         
-        l2_proj = get_l2_projection(basis_fn, J, x, w, n1*n2*n3)
+        l2_proj = get_l2_projection(basis_fn, x, w, n1*n2*n3)
         f_hat = l2_proj(f)
-        # f_hat = vmap(lambda i: l2_product(f, lambda x: basis_fn(x, i), J, x, w), 0)(jnp.arange(n1*n2*n3))
+        # f_hat = vmap(lambda i: l2_product(f, lambda x: basis_fn(x, i), x, w), 0)(jnp.arange(n1*n2*n3))
         f_h = get_u_h(f_hat, basis_fn)
         
         # plt.plot(f_hat)
@@ -63,4 +58,4 @@ class ProjectionTests(unittest.TestCase):
         # plt.legend()
         # plt.show()
         
-        npt.assert_allclose(jnp.sqrt(integral(err, J, x, w)), 0, atol=5e-3)
+        npt.assert_allclose(jnp.sqrt(integral(err, x, w)), 0, atol=5e-3)

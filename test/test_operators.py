@@ -2,9 +2,8 @@ import unittest
 from mhd_equilibria.coordinate_transforms import *
 from mhd_equilibria.operators import *
 import numpy.testing as npt
-import numpy as np
 from jax import numpy as jnp
-from jax import vmap, jit, grad, hessian, jacfwd, jacrev
+from jax import jit, grad
 import jax
 jax.config.update("jax_enable_x64", True)
 

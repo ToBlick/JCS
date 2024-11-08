@@ -7,7 +7,6 @@ from jax import numpy as jnp
 from jax import vmap, jit, grad
 import jax
 jax.config.update("jax_enable_x64", True)
-import matplotlib.pyplot as plt
 
 class BasisTests(unittest.TestCase):
     

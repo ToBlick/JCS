@@ -1,23 +1,20 @@
 import unittest
 from mhd_equilibria.operators import *
-from mhd_equilibria.bases import _binom, _get_legendre_coeffs
 from mhd_equilibria.coordinate_transforms import *
 import numpy.testing as npt
-import numpy as np
 from jax import numpy as jnp
-from jax import vmap, jit, grad, hessian, jacfwd, jacrev
 import jax
 jax.config.update("jax_enable_x64", True)
-import matplotlib.pyplot as plt
 
 class TransformsTests(unittest.TestCase):
     
     def test_cartesian_cyl(self): 
-        x = jnp.array([1.7, -2.4, 3.1])
+        x = jnp.array([1, 0, 1])
         r = cart_to_cyl(x)
         v = jnp.array([-4.1, 3.1, 2.7])
         v_c = vector_cart_to_cyl(v, x)
         
+        npt.assert_allclose(r, jnp.array([1, 0, 1]), atol=1e-9)
         npt.assert_allclose(x, cyl_to_cart(r), atol=1e-9)
         npt.assert_allclose(v, vector_cyl_to_cart(v_c, r), atol=1e-9)
         
