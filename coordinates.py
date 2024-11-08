@@ -124,7 +124,6 @@ value_and_grad = optax.value_and_grad_from_state(residual)
 
 params = [ ς_hat ]
 # optimization loop 
-# (this takes forever because of the laplacian, we only do 100 iterations)
 for _ in range(100):
     value, grad = value_and_grad(ς_hat, state=opt_state)
     if jnp.sum( grad**2 ) < 1e-9:
