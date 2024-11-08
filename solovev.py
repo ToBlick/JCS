@@ -98,7 +98,7 @@ n1, n2, n3 = 8, 1, 8
 _bases = (get_trig_fn_x(n1, *Omega[0]), get_trig_fn_x(n2, 0, 1), get_trig_fn_x(n3, *Omega[1]))
 #_bases = (get_legendre_fn_x(n1, *Omega[0]), get_legendre_fn_x(n2, 0, 2*jnp.pi), get_legendre_fn_x(n3, *Omega[1]))
 shape = (n1, n2, n3)
-basis_fn = get_basis_fn(_bases, shape) # basis_fn(x, k)
+basis_fn = get_tensor_basis_fn(_bases, shape) # basis_fn(x, k)
 _ns = jnp.arange(n1*n2*n3, dtype=jnp.int32)
 
 J = lambda x: x[0] # J(R, φ, Z) = R

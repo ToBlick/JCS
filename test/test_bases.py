@@ -89,7 +89,7 @@ class BasisTests(unittest.TestCase):
         bases = (get_legendre_fn_x(n_r, *Omega[0]), get_trig_fn_x(n_θ, *Omega[1]))
         shape = (n_r, n_θ)
         
-        basis_fn = get_basis_fn(bases, shape)
+        basis_fn = get_tensor_basis_fn(bases, shape)
         
         r = np.linspace(*Omega[0], n_x)
         θ = np.linspace(*Omega[1], n_x)

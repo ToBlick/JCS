@@ -76,7 +76,7 @@ x = x.transpose(1, 2, 3, 0).reshape(1*(nx)**2, 3)
 n = 32
 _bases = (get_trig_fn_x(n, 0, 2*jnp.pi), )
 shape = (n,)
-basis_fn = get_basis_fn(_bases, shape) # basis_fn(x, k)
+basis_fn = get_tensor_basis_fn(_bases, shape) # basis_fn(x, k)
 _ns = jnp.arange(n, dtype=jnp.int32)
 
 ς_hat = jnp.zeros(n)

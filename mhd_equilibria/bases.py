@@ -65,7 +65,7 @@ def get_polynomial_basis_fn(coeffs, a, b):
 def _lin_to_cart(i, shape):
     return jnp.unravel_index(i, shape)
 
-def get_basis_fn(bases, shape):
+def get_tensor_basis_fn(bases, shape):
     # TODO: vmap?
     def basis_fn(x, k):
         d = len(x)

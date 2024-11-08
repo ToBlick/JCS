@@ -37,7 +37,7 @@ class ProjectionTests(unittest.TestCase):
         n1, n2, n3 = 4, 6, 8
         _bases = (get_legendre_fn_x(n1, 0, 1), get_trig_fn_x(n2, 0, 1), get_trig_fn_x(n3, 0, 1))
         shape = (n1, n2, n3)
-        basis_fn = get_basis_fn(_bases, shape) # basis_fn(x, k)
+        basis_fn = get_tensor_basis_fn(_bases, shape) # basis_fn(x, k)
         
         l2_proj = get_l2_projection(basis_fn, x, w, n1*n2*n3)
         f_hat = l2_proj(f)
