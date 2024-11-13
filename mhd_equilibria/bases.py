@@ -7,6 +7,8 @@ from functools import partial
 ### ! TODO:
 # There is some bug going on with Legendre bases under autodiff
 
+# TODO: Fix this in32 int64 business
+
 # 1D trig basis function ψ number i at point x in [0, L]:
 # normed such that ∫ ψ_i * ψ_i = 1 for all i=j and 0 otherwise
 def _trig_fn_x(x, k, a, b):
@@ -35,12 +37,12 @@ def _get_legendre_coeff(k, n):
     return jnp.round(_binom(n, k) * _binom(n + k, k))
 
 def __get_legendre_coeffs(n, N):
-    _k = jnp.arange(n + 1, dtype=int)
+    _k = jnp.arange(n + 1, dtype=jnp.int64)
     non_zero_coeffs = vmap(_get_legendre_coeff, (0, None))(_k, n)
     return jnp.concatenate([non_zero_coeffs, jnp.zeros(N - n)])
 
 def _get_legendre_coeffs(N):
-    _n = jnp.arange(N + 1, dtype=int)
+    _n = jnp.arange(N + 1, dtype=jnp.int64)
     return jnp.array([__get_legendre_coeffs(n, N) for n in _n])
     # return vmap(_get_legendre_coeffs, (0, None), axis_size=N+1)(_n, N)
 
@@ -49,14 +51,14 @@ def _get_legendre_coeffs(N):
 def get_legendre_fn_x(K, a, b):
     coeffs = _get_legendre_coeffs(K)
     def _legendre_fn_x(x, k):
-        _n = jnp.arange(len(coeffs[k]), dtype=int)
+        _n = jnp.arange(len(coeffs[k]), dtype=jnp.int64)
         _x = (-(x - a) / (b-a) )**_n
         return (-1)**k * jnp.sqrt((2*k + 1)/(b-a)) * jnp.dot(coeffs[k, :], _x) 
     return _legendre_fn_x
 
 def get_polynomial_basis_fn(coeffs, a, b):
     def _basis_fn(x, k):
-        _n = jnp.arange(len(coeffs[k]), dtype=int)
+        _n = jnp.arange(len(coeffs[k]), dtype=jnp.int64)
         _x = ( -(x-a)/(b-a) )**_n
         return jnp.dot(coeffs[k], _x)
     return _basis_fn
@@ -69,7 +71,7 @@ def get_tensor_basis_fn(bases, shape):
     d = len(bases)
     # TODO: vmap?
     def basis_fn(x, k):
-        _k = jnp.array(_lin_to_cart(k, shape), dtype=int)
+        _k = jnp.array(_lin_to_cart(k, shape), dtype=jnp.int64)
         return jnp.prod( jnp.array( [ bases[j](x[j], _k[j]) for j in range(d)] ) )
     return basis_fn
     
@@ -82,7 +84,7 @@ def _ansi_idx(n, m):
     return int( n * (n + 2) + m ) // 2
 
 def _unravel_ansi_idx(j):
-    n = int(jnp.ceil( (-3 + jnp.sqrt(9 + 8 * j)) / 2 ))
+    n = (jnp.ceil( (-3 + jnp.sqrt(9 + 8 * j)) / 2 )).astype(int)
     m = 2 * j - n * (n + 2)
     return n, m
 
@@ -96,7 +98,7 @@ def _get_radial_zernike_coeff(k, n, m):
     def _nonzero_coeff(n, m, k):
         return jnp.round( (-1)**k * _binom(n - k, k) * _binom(n - 2*k, (n - m) / 2 - k) )
     def _zero_coeff(n, m, k):
-        return 0.0
+        return k * 0.0
     return jax.lax.cond( (n - m) % 2 == 0, _nonzero_coeff, _zero_coeff, n, m, k)
 
 # get all coefficients corresponding to index j, up to J
@@ -104,12 +106,12 @@ def __get_radial_zernike_coeffs(j, J):
     n, m = _unravel_ansi_idx(j)
     n_max, m_max = _unravel_ansi_idx(J)
     k_max = n_max // 2 - 1
-    _k = jnp.arange((n-jnp.abs(m))//2 + 1, dtype=int)
+    _k = jnp.arange((n-jnp.abs(m))//2 + 1, dtype=jnp.int64)
     non_zero_coeffs = vmap(get_radial_zernike_coeff, (0, None))(_k, j)
     return jnp.concatenate([non_zero_coeffs, jnp.zeros(k_max - _k[-1] + 1)])
 
 def _get_radial_zernike_coeffs(J):
-    _j = jnp.arange(J + 1, dtype=int)
+    _j = jnp.arange(J + 1, dtype=jnp.int64)
     return jnp.array([__get_radial_zernike_coeffs(j, J) for j in _j])
 
 # 2D Zernike basis function ψ number j at point x = (r,theta) in [a, b] x [c, d]:
@@ -124,10 +126,20 @@ def get_zernike_fn_x(J, a, b, c, d):
         r, θ = x
         n, l = _unravel_ansi_idx(j)
         m = jnp.abs(l)
-        _k = jnp.arange(len(coeffs[j]), dtype=int)
+        _k = jnp.arange(len(coeffs[j]), dtype=jnp.int64)
         _r = ( (r - a) / Lr )**(n - 2 * _k)
         mθ = (θ - c) / Lθ * 2 * jnp.pi * m
         angular_term = jax.lax.cond(l < 0, jnp.sin, jnp.cos, mθ)
         neumann_factor = jax.lax.cond(m == 0, r1, r2, m)
         return jnp.sqrt((2*n + 2)/Lr) * jnp.dot(coeffs[j, :], _r) * angular_term * neumann_factor
     return _zernike_fn_x
+
+def get_zernike_tensor_basis_fn(bases, shape):
+    # TODO: vmap?
+    def basis_fn(x, k):
+        rθ, z = x[:-1], x[-1]
+        _k = jnp.array(_lin_to_cart(k, shape), dtype=jnp.int64)
+        poloidal_plane = bases[0](rθ, _k[0])
+        toroidal = bases[1](z, _k[1])
+        return poloidal_plane * toroidal
+    return basis_fn

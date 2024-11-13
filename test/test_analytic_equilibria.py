@@ -9,6 +9,8 @@ jax.config.update("jax_enable_x64", True)
 
 import matplotlib.pyplot as plt
 
+#TODO: Also deprecated by now
+
 class AnalyticTests(unittest.TestCase):
     
     def test_onedim(self):
