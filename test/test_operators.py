@@ -7,6 +7,8 @@ from jax import jit, grad
 import jax
 jax.config.update("jax_enable_x64", True)
 
+#TODO This is mostly deprecated now
+
 class OperatorTests(unittest.TestCase):
     
     def test_cartesian(self):

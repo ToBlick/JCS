@@ -25,13 +25,14 @@ def pullback_3form(f, F):
 
 # jax does not have these hardcoded, so this is a speedup of ~30x
 
+# TODO: who knows what is going on here
 # def __inv(mat):
-#     return jax.lax.cond(mat.size == 9 or mat.size == 4, _inv, jnp.linalg.inv, mat)
-
+#     return jax.lax.cond((mat.size == 9) | ( mat.size == 4), _inv, jnp.linalg.inv, mat)
 # def _inv(mat):
-#     return jax.lax.cond(mat.size == 4, inv22, inv33, mat)
+#     return jax.lax.cond((mat.size == 9), inv33, inv22, mat)
 
 def inv22(mat):
+    print(mat)
     m1, m2 = mat[0]
     m3, m4 = mat[1]
     det = m1 * m4 - m2 * m3

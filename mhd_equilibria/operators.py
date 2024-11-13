@@ -10,7 +10,6 @@ def div(F):
 
 def curl(F):
     def curl_F(x):
-        r, θ, z = x
         DF = jacfwd(F)(x)
         return jnp.array([  DF[2, 1] - DF[1, 2], 
                             DF[0, 2] - DF[2, 0], 
