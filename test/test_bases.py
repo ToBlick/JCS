@@ -7,6 +7,9 @@ from jax import numpy as jnp
 from jax import vmap, jit, grad
 import jax
 jax.config.update("jax_enable_x64", True)
+import time
+
+#TODO: Add tests for chebychev
 
 class BasisTests(unittest.TestCase):
     
@@ -40,9 +43,12 @@ class BasisTests(unittest.TestCase):
         weights = L * np.ones(nx) / (nx-1)
         weights[0] *= 0.5
         weights[-1] *= 0.5
+        t0 = time.time_ns()
         ψ3 = vmap(legendre_fn_x, (0, None))(_x, 3)
         ψ4 = vmap(legendre_fn_x, (0, None))(_x, 4)
         ψ5 = vmap(legendre_fn_x, (0, None))(_x, 5)
+        t1 = time.time_ns()
+        print("legendre time", (t1-t0)/1e6)
         npt.assert_allclose(np.sum(weights * ψ3**2), 1, rtol=1e-3)
         npt.assert_allclose(np.sum(weights * ψ4**2), 1, rtol=1e-3)
         npt.assert_allclose(np.sum(weights * ψ3*ψ4), 0, atol=1e-3)

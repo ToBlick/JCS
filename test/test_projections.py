@@ -2,6 +2,7 @@ import unittest
 from mhd_equilibria.bases import *
 from mhd_equilibria.projections import *
 from mhd_equilibria.operators import curl, div
+from mhd_equilibria.quadratures import *
 import numpy.testing as npt
 from jax import numpy as jnp
 import jax
@@ -71,3 +72,42 @@ class ProjectionTests(unittest.TestCase):
         
         npt.assert_allclose(jnp.sqrt(integral(l2_err, x, w)), 0, atol=1e-6)
         npt.assert_allclose(jnp.sqrt(integral(h1_err, x, w)), 0, atol=1e-6)
+        
+    def test_zernike(self):
+        # project Gaussian onto Zernike polynomials
+        def f(x):
+            r, θ = x 
+            return jnp.exp(-(r)**2/(2 * 0.5**2))
+        def f_3d(x):
+            r, θ, z = x
+            return f(jnp.array([r, θ]))
+        
+        Omega = ((0, 1), (0, 2*jnp.pi), (0, 2*jnp.pi))
+        x_q, w_q = quadrature_grid(get_quadrature(31)(*Omega[0]),
+                                   get_quadrature_periodic(64)(*Omega[1]),
+                                   get_quadrature_periodic(1)(*Omega[2]))
+        
+        _n = 8
+        n_r = _n
+        n_θ = _n
+        n_φ = 1
+        bases = (get_zernike_fn_x(n_r*n_θ, *Omega[0], *Omega[1]), get_trig_fn_x(n_φ, *Omega[2]))
+        shape = (n_r*n_θ, n_φ)
+        basis_fn = jit(get_zernike_tensor_basis_fn(bases, shape))
+        N = n_r*n_θ*n_φ
+
+        l2_proj = get_l2_projection(basis_fn, x_q, w_q, N)
+        f_hat = l2_proj(lambda x: f_3d(x) * x[0])
+        basis_fns = (basis_fn, basis_fn, basis_fn)
+        f_h = get_u_h(f_hat, basis_fn)
+
+        def err(x):
+            return (f_h(x) - f_3d(x))**2 * x[0]
+
+        def normalization(x):
+            return (f_3d(x))**2 * x[0]
+    
+        error = ( jnp.sqrt( integral(err, x_q, w_q)) 
+                  / jnp.sqrt( integral(normalization, x_q, w_q)) )
+
+        npt.assert_allclose(error, 0, atol=5e-3)

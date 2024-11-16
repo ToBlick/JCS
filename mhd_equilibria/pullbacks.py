@@ -23,6 +23,17 @@ def pullback_3form(f, F):
         return J * f(F(x))
     return pullback
 
+def inner_product_1form(u, v, F):
+    # u and v are in logical domain
+    def integrand(x):
+        DF = jax.jacfwd(F)(x)
+        J = jnp.linalg.det(DF)
+        return u(x) @ inv33(DF.T @ DF).T @ v(x) * J
+    return integrand
+    
+    
+    
+
 # jax does not have these hardcoded, so this is a speedup of ~30x
 
 # TODO: who knows what is going on here

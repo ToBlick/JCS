@@ -1,5 +1,5 @@
 # %%
-from jax import grad, jacrev, jacfwd, hessian, vmap, jit
+from jax import jacrev, jacfwd, hessian, vmap, jit
 import jax.numpy as jnp
 from functools import partial
 
@@ -10,14 +10,17 @@ from mhd_equilibria.projections import *
 from mhd_equilibria.forms import *
 from mhd_equilibria.plotting import *
 from mhd_equilibria.operators import *
+from mhd_equilibria.pullbacks import *
+from mhd_equilibria.quadratures import *
 
 import matplotlib.pyplot as plt
+jax.config.update("jax_enable_x64", True)
 
 import time
 
 # %%
 ### Constants
-κ = 1.9
+κ = 1.5
 q = 1.5
 B0 = 1.0
 R0 = 2.0
@@ -83,6 +86,7 @@ _ns = jnp.arange(n, dtype=jnp.int32)
 ς_hat = ς_hat.at[0].set(1.0)
 
 def ς(θ):
+    # special care here since the u_h fct is not written with scalar functions in mind.
     return get_u_h(ς_hat, basis_fn)(θ)
 
 # %%
@@ -96,7 +100,7 @@ ax.plot(R0 + vmap(ς)(_θ[:, None]) * jnp.cos(_θ),
         color = 'red')
 ax.set_xlabel(r'$R$')
 ax.set_ylabel(r'$Z$')
-ax.set_aspect('auto')
+ax.set_aspect('equal')
 plt.show()
 # %%
 @jit
@@ -137,7 +141,6 @@ for _ in range(100):
 
 
 # %%
-
 cmap = plt.get_cmap("inferno")
 
 _r = jnp.linspace(0, 1.0, nx)
@@ -152,7 +155,7 @@ for (i, p) in enumerate(params):
             color = cmap(i/len(params)))
 ax.set_xlabel(r'$R$')
 ax.set_ylabel(r'$Z$')
-ax.set_aspect('auto')
+ax.set_aspect('equal')
 plt.show()
 
 # %%
@@ -163,3 +166,165 @@ plt.xlabel(r'$\theta$')
 plt.ylabel(r'$\varsigma(\theta)$')
 plt.show()
 
+
+# %%
+
+def F(x):
+    r, θ, z = x
+    θ = jnp.array([θ])
+    R = R0 + ς(θ) * r * jnp.cos(θ)
+    phi = -z/R0
+    Z = ς(θ) * r * jnp.sin(θ)
+    R = jnp.squeeze(R)
+    Z = jnp.squeeze(Z)
+    return jnp.array([R, phi, Z])
+    
+def F_inv(x):
+    R, phi, Z = x
+    z = - R0 * phi
+    θ = jnp.arctan2(Z, R - R0)
+    _θ = jnp.array([θ])
+    r = jnp.sqrt( (R - R0)**2 + Z**2) / ς(_θ)
+    r = jnp.squeeze(r)
+    return jnp.array([r, θ, z])
+
+def f_hat(x):
+    r, θ = x
+    return 2 * jnp.exp(-r**2/2/0.3**2) * r**2 * (1 + jnp.cos(θ)**2)
+
+def f_hat_3d(x):
+    r, θ, z = x
+    return f_hat(jnp.array([r, θ]))
+
+f = pullback_0form(f_hat_3d, F_inv)
+
+# %%
+nx = 256
+_r = np.linspace(1e-2, 1, nx)
+_θ = np.linspace(0, 2*np.pi, nx)
+d = 2
+x_hat = jnp.array(jnp.meshgrid(_r, _θ)).reshape(d, nx**2).T
+__r, __θ = np.meshgrid(_r, _θ)
+
+# Convert tokamak coordinates to Cylindrical ones for plotting
+x_hat_ext = jnp.column_stack([x_hat, jnp.zeros(x_hat.shape[0])])
+x = vmap(F)(x_hat_ext)
+R = x[:, 0].reshape(nx, nx)
+Z = x[:, 2].reshape(nx, nx)
+
+# %%
+f_vals = jax.vmap(f)(x).reshape(nx, nx)
+# f_vals = jax.vmap(f_hat)(x_hat)
+f_vals_reshaped = f_vals.reshape(nx, nx)
+
+# %%
+# Plot the function on the unit disk
+cm = plt.get_cmap('viridis')
+plt.figure(figsize=(6, 6))
+plt.pcolormesh(R, Z, f_vals, shading='auto', cmap='viridis')
+_x0 = jnp.column_stack( [_r, jnp.zeros_like(_r)] )
+plt.plot(R0 + ς(jnp.zeros(1)) * _r, vmap(f_hat)(_x0), color='w')
+plt.arrow(R0, 0, 0.9 * ς(jnp.zeros(1)), 0, color='w', head_width=0.02)
+_x0 = jnp.column_stack( [_r, jnp.pi * jnp.ones_like(_r)] )
+plt.plot(R0 - ς(jnp.array([jnp.pi])) * (_r), vmap(f_hat)(_x0), color='w')
+plt.arrow(R0, 0, -0.9 * ς(jnp.array([jnp.pi])), 0, color='w', head_width=0.02)
+plt.colorbar()
+plt.xlabel('R')
+plt.ylabel('Z')
+plt.axis('equal')
+plt.show()
+# %%
+
+grad_f_hat = jax.grad(f_hat_3d)
+grad_f = pullback_1form(grad_f_hat, F_inv)
+grad_f_vals = jax.vmap(grad_f)(x)
+grad_f_vals_reshaped = grad_f_vals.reshape(nx, nx, 3)
+
+# %%
+cm = plt.get_cmap('viridis')
+plt.figure(figsize=(6, 6))
+plt.pcolormesh(R, Z, f_vals_reshaped, shading='auto', cmap='viridis')
+plt.quiver( x[::300, 0], 
+            x[::300, 2],
+            grad_f_vals[::300,0],
+            grad_f_vals[::300,2],
+            color = 'w',
+            )
+plt.colorbar()
+plt.xlabel('R')
+plt.ylabel('Z')
+plt.axis('equal')
+plt.show()
+# %%
+Omega = ((0, 1), (0, 2*jnp.pi), (0, 2*jnp.pi))
+n_r, n_θ, n_φ = 5, 5, 1
+N = n_r * n_θ * n_φ
+basis_fn = construct_tensor_basis((n_r, n_θ, n_φ), Omega)
+lowres_basis_fn = construct_tensor_basis((1, 1, 1), Omega)
+
+x_q, w_q = quadrature_grid(get_quadrature(15)(*Omega[0]),
+                           get_quadrature_periodic(16)(*Omega[1]),
+                           get_quadrature_periodic(1)(*Omega[2]))
+
+basis_fns = (basis_fn, basis_fn, lowres_basis_fn)
+ns = (N, N, 1)
+
+def get_mass_matrices(bases, x_q, w_q, ns):
+    Ms = []
+    for i, basis_fn in enumerate(bases):
+        N = ns[i]
+        M_ij = get_mass_matrix_lazy(basis_fn, x_q, w_q, N)
+        M = jnp.array([ M_ij(i, j) for i in range(N) for j in range(N) ]).reshape(N, N)
+        M = jnp.where(M < 1e-10, 0.0, M)
+        Ms.append(M)
+    return Ms
+# %%
+Ms = get_mass_matrices(basis_fns, x_q, w_q, ns)
+# %%
+𝚷1 = get_l2_projection_vec(basis_fns, x_q, w_q, ns)
+
+# %%
+grad_f_hat_dofs = 𝚷1(grad_f_hat)
+# %%
+def get_u_h_vec(u_hat, basis_fns):
+    # u_hat: d-tuple with n_j elements
+    _d = jnp.arange(len(u_hat), dtype=jnp.int32)
+    def u_h(x):
+        return jnp.array([ jnp.sum(u_hat[i] * vmap(basis_fns[i], (None, 0))(x, jnp.arange(len(u_hat[i]), dtype=jnp.int32))) for i in _d ])
+    return u_h
+
+grad_f_hat_h = get_u_h_vec(grad_f_hat_dofs, basis_fns)
+grad_f_h = pullback_1form(grad_f_hat_h, F_inv)
+grad_f_h_vals = jax.vmap(grad_f_h)(x)
+# %%
+cm = plt.get_cmap('viridis')
+plt.figure(figsize=(6, 6))
+plt.pcolormesh(R, Z, f_vals_reshaped, shading='auto', cmap='viridis')
+plt.quiver( x[::300, 0], 
+            x[::300, 2],
+            grad_f_h_vals[::300,0],
+            grad_f_h_vals[::300,2],
+            color = 'r',
+            alpha = 0.5
+            )
+plt.quiver( x[::300, 0], 
+            x[::300, 2],
+            grad_f_vals[::300,0],
+            grad_f_vals[::300,2],
+            color = 'w',
+            alpha = 0.5
+            )
+plt.colorbar()
+plt.xlabel('R')
+plt.ylabel('Z')
+plt.axis('equal')
+plt.show()
+# %%
+def error_1forms(u, v, F):
+    def _err(x):
+        return u(x) - v(x)
+    _int1 = inner_product_1form(_err, _err, F)
+    _int2 = inner_product_1form(v, v, F)
+    return jnp.sqrt( integral(_int1, x_q, w_q) ) / jnp.sqrt( integral(_int2, x_q, w_q) )
+
+print(error_1forms(grad_f_hat_h, grad_f_hat, F))

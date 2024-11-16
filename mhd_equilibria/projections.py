@@ -23,18 +23,32 @@ def get_l2_projection(basis_fn, x_q, w_q, n):
         return vmap(lambda i: l2_product(f, get_basis(i), x_q, w_q))(_k) 
     return l2_projection
 
+
+# TODO n_s should really be stored in the basis_fns
+def get_l2_projection_vec(basis_fns, x_q, w_q, ns):
+    def get_basis(j, k):
+        return lambda x: basis_fns[j](x, k)
+    def _l2_projection(f, j):
+        def fj(x):
+            return f(x)[j]
+        _k = jnp.arange(ns[j], dtype=jnp.int32)
+        return vmap(lambda i: l2_product(fj, get_basis(j, i), x_q, w_q))(_k) 
+    def l2_projection(f):
+        _d = jnp.arange(len(ns), dtype=jnp.int32)
+        return tuple([_l2_projection(f, j) for j in _d])
+    return l2_projection
+
 def get_u_h(u_hat, basis_fn):
     _k = jnp.arange(len(u_hat), dtype=jnp.int32)
     def u_h(x):
         return jnp.sum(u_hat * vmap(basis_fn, (None, 0))(x, _k))
     return u_h
 
-def get_u_h_vec(u_hat, basis_fn):
-    # u_hat: (n, d)
-    _k = jnp.arange(u_hat.shape[0], dtype=jnp.int32)
-    _d = jnp.arange(u_hat.shape[1], dtype=jnp.int32)
+def get_u_h_vec(u_hat, basis_fns):
+    # u_hat: d-tuple with n_j elements
+    _d = jnp.arange(len(u_hat), dtype=jnp.int32)
     def u_h(x):
-        return jnp.array([ jnp.sum(u_hat[:,i] * vmap(basis_fn, (None, 0))(x, _k)) for i in _d ])
+        return jnp.array([ jnp.sum(u_hat[i] * vmap(basis_fns[i], (None, 0))(x, jnp.arange(len(u_hat[i]), dtype=jnp.int32))) for i in _d ])
     return u_h
 
 def get_mass_matrix_lazy(basis_fn, x_q, w_q, n):

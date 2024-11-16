@@ -3,6 +3,7 @@ import jax.numpy as jnp
 from jax.scipy.special import gammaln
 from jax import vmap, grad
 from functools import partial
+import orthax
 
 ### ! TODO:
 # There is some bug going on with Legendre bases under autodiff
@@ -53,8 +54,18 @@ def get_legendre_fn_x(K, a, b):
     def _legendre_fn_x(x, k):
         _n = jnp.arange(len(coeffs[k]), dtype=jnp.int64)
         _x = (-(x - a) / (b-a) )**_n
-        return (-1)**k * jnp.sqrt((2*k + 1)/(b-a)) * jnp.dot(coeffs[k, :], _x) 
+        return (-1)**k * jnp.sqrt((2*k + 1)/(b-a)) * jnp.dot(coeffs[k, :], _x)
+        # _x = (2 * x - a - b) / (b - a)
+        # return jnp.sqrt((2*k + 1)/(b-a)) * orthax.legendre.legval(_x, jnp.zeros(k+1).at[k].set(1))
     return _legendre_fn_x
+
+def get_chebyshev_fn_x(K, a, b):
+    coeffs = jnp.zeros(K+1)
+    def _cheb_fn_x(x, k):
+        _x = (2 * x - a - b) / (b - a)
+        # k = jnp.int32(k)
+        return jnp.sqrt(1/(b-a)) * orthax.chebyshev.chebval(_x, coeffs.at[k].set(1))
+    return _cheb_fn_x
 
 def get_polynomial_basis_fn(coeffs, a, b):
     def _basis_fn(x, k):
@@ -134,6 +145,27 @@ def get_zernike_fn_x(J, a, b, c, d):
         return jnp.sqrt((2*n + 2)/Lr) * jnp.dot(coeffs[j, :], _r) * angular_term * neumann_factor
     return _zernike_fn_x
 
+def get_zernike_fn_radial_derivative(N, a, b, c, d):
+    coeffs = _get_radial_zernike_coeffs(N)
+    Lθ = d - c
+    Lr = b - a
+    r1 = lambda x: jnp.sqrt(1/Lθ)
+    r2 = lambda x: jnp.sqrt(2/Lθ)
+    r3 = lambda x: 1.0
+    r4 = lambda x: 0.0
+    def _zernike_fn_x(x, j):
+        r, θ = x
+        n, l = _unravel_ansi_idx(j)
+        m = jnp.abs(l)
+        _k = jnp.arange(len(coeffs[j]), dtype=jnp.int64)
+        _r = ( (r - a) / Lr )**(n - 2 * _k - 1) * (n - 2 * _k) / Lr
+        mθ = (θ - c) / Lθ * 2 * jnp.pi * m
+        angular_term = jax.lax.cond(l < 0, jnp.sin, jnp.cos, mθ)
+        neumann_factor = jax.lax.cond(m == 0, r1, r2, m)
+        constant_offset = jax.lax.cond(n == 0, r3, r4, m)
+        return jnp.sqrt((2*n + 2)/Lr) * jnp.dot(coeffs[j, :], _r) * angular_term * neumann_factor + constant_offset
+    return _zernike_fn_x
+
 def get_zernike_tensor_basis_fn(bases, shape):
     # TODO: vmap?
     def basis_fn(x, k):
@@ -142,4 +174,12 @@ def get_zernike_tensor_basis_fn(bases, shape):
         poloidal_plane = bases[0](rθ, _k[0])
         toroidal = bases[1](z, _k[1])
         return poloidal_plane * toroidal
+    return basis_fn
+
+def construct_tensor_basis(shape, Omega):
+    n_r, n_θ, n_φ = shape
+    bases = (get_legendre_fn_x(n_r, *Omega[0]), 
+             get_trig_fn_x(n_θ, *Omega[1]),
+             get_trig_fn_x(n_φ, *Omega[2]))
+    basis_fn = get_tensor_basis_fn(bases, shape)
     return basis_fn

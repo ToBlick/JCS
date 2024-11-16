@@ -14,6 +14,7 @@ _θ = np.linspace(0, 2*np.pi, nx)
 d = 2
 J = 50
 zernike_fn = get_zernike_fn_x(J, 0, 1, 0, 2*np.pi)
+zernike_fn_radial_derivative = get_zernike_fn_radial_derivative(J, 0, 1, 0, 2*np.pi)
 
 x = jnp.array(jnp.meshgrid(_r, _θ)).reshape(d, nx**2).T
 
@@ -21,7 +22,7 @@ x = jnp.array(jnp.meshgrid(_r, _θ)).reshape(d, nx**2).T
 j = 12
 R, Phi = np.meshgrid(_r, _θ)
 # Compute the function values on the grid
-Z = jax.vmap(zernike_fn, (0, None))(x, j).reshape(nx, nx)
+Z = jax.vmap(zernike_fn_radial_derivative, (0, None))(x, j).reshape(nx, nx)
 
 # Convert polar coordinates to Cartesian for plotting
 X, Y = R * np.cos(Phi), R * np.sin(Phi)
@@ -45,14 +46,18 @@ for j in range(1, J):
         c = 2
     else:
         c = 1
-    plt.plot(_r, (c * np.pi/(2*n + 2))**0.5 * vmap(zernike_fn, (0, None))( np.column_stack([_r, np.zeros_like(_r)]) , j))
+    plt.plot(_r, (c * np.pi/(2*n + 2))**0.5 * vmap(zernike_fn, (0, None))( np.column_stack([_r, np.zeros_like(_r)]) , j), label='n = {}'.format(n))
 plt.grid()
+plt.legend()
+plt.show()
 # %%
 
 # project Gaussian onto Zernike polynomials
 def f(x):
     r, θ = x 
-    return jnp.exp(-(r)**2/(2 * 0.5**2))
+    x1 = r * jnp.cos(θ)
+    x2 = r * jnp.sin(θ)
+    return jnp.exp(-(r)**2/(2 * 0.5**2)) * r * (1 + r**2 * jnp.cos(θ)**2)
     # return r**3 * jnp.sin(θ)
 Z = jax.vmap(f)(x).reshape(nx, nx)
 plt.figure(figsize=(6, 6))
@@ -68,9 +73,7 @@ def f_3d(x):
     r, θ, z = x
     return f(jnp.array([r, θ]))
 # %%
-
-# Compute the projection of the Gaussian onto the Zernike basis
-
+# check radial derivative spaces
 Omega = ((0, 1), (0, 2*jnp.pi), (0, 2*jnp.pi))
 x_q, w_q = quadrature_grid(get_quadrature(31)(*Omega[0]),
                            get_quadrature_periodic(64)(*Omega[1]),
@@ -81,41 +84,158 @@ def J_analytic(x):
     return r
 J_at_x = vmap(J_analytic)(x_q)
 
-l2_errors = []
+n_r = 7
+n_θ = 3
+n_φ = 1
+bases = (get_zernike_fn_radial_derivative(n_r*n_θ, *Omega[0], *Omega[1]), get_trig_fn_x(n_φ, *Omega[2]))
+shape = (n_r*n_θ, n_φ)
+basis_fn = jit(get_zernike_tensor_basis_fn(bases, shape))
+N = n_r*n_θ*n_φ
 
-for _n in range(2,10):
+# Assemble the mass matrix
+M_ij = get_mass_matrix_lazy(lambda x,j: basis_fn(x, j) * jnp.sqrt(J_analytic(x)), x_q, w_q, N)
+M = jnp.array([ M_ij(i, j) for i in range(N) for j in range(N) ]).reshape(N, N)
+
+# %%
+plt.imshow(jnp.log10(jnp.abs(M) + 1e-16))
+plt.colorbar()
+
+# %%
+l2_proj = get_l2_projection(basis_fn, x_q, w_q, N)
+f_hat = l2_proj(lambda x: f_3d(x) * x[0])[:, None]
+f_hat = jnp.linalg.solve(M, f_hat)
+plt.scatter(jnp.arange(N), f_hat)
+
+# %%
+### Do the same with a tensor basis
+n_r = 4
+n_θ = 4
+n_φ = 1
+bases = (get_legendre_fn_x(n_r, *Omega[0]), get_trig_fn_x(n_θ, *Omega[1]), get_trig_fn_x(n_φ, *Omega[2]))
+shape = (n_r, n_θ, n_φ)
+basis_fn = jit(get_tensor_basis_fn(bases, shape))
+N = n_r*n_θ*n_φ
+
+# Assemble the mass matrix
+M_ij = get_mass_matrix_lazy(lambda x,j: basis_fn(x, j) * jnp.sqrt(J_analytic(x)), x_q, w_q, N)
+M = jnp.array([ M_ij(i, j) for i in range(N) for j in range(N) ]).reshape(N, N)
+
+# %%
+plt.imshow(jnp.log10(jnp.abs(M) + 1e-16))
+plt.colorbar()
+
+# %%
+l2_proj = get_l2_projection(basis_fn, x_q, w_q, N)
+f_hat = l2_proj(lambda x: f_3d(x) * x[0])[:, None]
+f_hat = jnp.linalg.solve(M, f_hat)
+plt.scatter(jnp.arange(N), f_hat)
+
+# %%
+
+# Compute the projection of the Gaussian onto the Zernike basis
+
+l2_errors_zernike = []
+l2_errors_zernike_radial = []
+l2_errors_legendre = []
+l2_errors_cheb = []
+
+for _n in range(2,9):
     n_r = _n
     n_θ = _n
     n_φ = 1
-    bases = (get_zernike_fn_x(n_r*n_θ, *Omega[0], *Omega[1]), get_trig_fn_x(n_φ, *Omega[2]))
+    N = n_r*n_θ*n_φ
+    print(N)
+    
+    bases = (get_zernike_fn_radial_derivative(n_r*n_θ, *Omega[0], *Omega[1]), 
+             get_trig_fn_x(n_φ, *Omega[2]))
     shape = (n_r*n_θ, n_φ)
     basis_fn = jit(get_zernike_tensor_basis_fn(bases, shape))
-    N = n_r*n_θ*n_φ
-
-    # if x.shape[1] != 3:
-    #     x = jnp.column_stack([x, jnp.ones(x.shape[0])])
-    # _j = N // 2
-    # Z = jax.vmap(basis_fn, (0, None))(x, _j).reshape(nx, nx)
-    # plt.figure(figsize=(6, 6))
-    # plt.pcolormesh(X, Y, Z, shading='auto', cmap='viridis')
-    # plt.colorbar()
-    # plt.xlabel('x')
-    # plt.ylabel('y')
-    # plt.title('{}th Zernike polynomial'.format(_j))
-    # plt.axis('equal')
-    # plt.show()
-
-    # # Assemble the mass matrix
-    # M_ij = get_mass_matrix_lazy(lambda x,j: basis_fn(x, j) * jnp.sqrt(J_analytic(x)), x_q, w_q, N)
-    # M = jnp.array([ M_ij(i, j) for i in range(N) for j in range(N) ]).reshape(N, N)
-    # plt.imshow(M)
-    # plt.colorbar()
+    
+    M_ij = get_mass_matrix_lazy(lambda x,j: basis_fn(x, j) * jnp.sqrt(J_analytic(x)), x_q, w_q, N)
+    M = jnp.array([ M_ij(i, j) for i in range(N) for j in range(N) ]).reshape(N, N)
 
     l2_proj = get_l2_projection(basis_fn, x_q, w_q, N)
     f_hat = l2_proj(lambda x: f_3d(x) * x[0])[:, None]
-    # plt.scatter(jnp.arange(N), f_hat)
+    f_hat = jnp.linalg.solve(M, f_hat)
     f_h = get_u_h_vec(f_hat, basis_fn)
 
+    def err(x):
+        return (f_h(x) - f_3d(x))**2 * x[0]
+
+    def normalization(x):
+        return (f_3d(x))**2 * x[0]
+    
+    l2_errors_zernike_radial.append( jnp.sqrt( integral(err, x_q, w_q)) 
+                                    / jnp.sqrt( integral(normalization, x_q, w_q)) )
+    
+    bases = (get_zernike_fn_x(n_r*n_θ, *Omega[0], *Omega[1]), 
+             get_trig_fn_x(n_φ, *Omega[2]))
+    shape = (n_r*n_θ, n_φ)
+    basis_fn = jit(get_zernike_tensor_basis_fn(bases, shape))
+    
+    M_ij = get_mass_matrix_lazy(lambda x,j: basis_fn(x, j) * jnp.sqrt(J_analytic(x)), x_q, w_q, N)
+    M = jnp.array([ M_ij(i, j) for i in range(N) for j in range(N) ]).reshape(N, N)
+
+    l2_proj = get_l2_projection(basis_fn, x_q, w_q, N)
+    f_hat = l2_proj(lambda x: f_3d(x) * x[0])[:, None]
+    f_hat = jnp.linalg.solve(M, f_hat)
+    f_h = get_u_h_vec(f_hat, basis_fn)
+
+    def err(x):
+        return (f_h(x) - f_3d(x))**2 * x[0]
+
+    def normalization(x):
+        return (f_3d(x))**2 * x[0]
+    
+    l2_errors_zernike.append( jnp.sqrt( integral(err, x_q, w_q)) 
+                                    / jnp.sqrt( integral(normalization, x_q, w_q)) )
+    
+    bases = (get_legendre_fn_x(n_r, *Omega[0]), 
+             get_trig_fn_x(n_θ, *Omega[1]), 
+             get_trig_fn_x(n_φ, *Omega[2]))
+    shape = (n_r, n_θ, n_φ)
+    basis_fn = jit(get_tensor_basis_fn(bases, shape))
+    
+    M_ij = get_mass_matrix_lazy(lambda x,j: basis_fn(x, j) * jnp.sqrt(J_analytic(x)), x_q, w_q, N)
+    M = jnp.array([ M_ij(i, j) for i in range(N) for j in range(N) ]).reshape(N, N)
+
+    l2_proj = get_l2_projection(basis_fn, x_q, w_q, N)
+    f_hat = l2_proj(lambda x: f_3d(x) * x[0])[:, None]
+    f_hat = jnp.linalg.solve(M, f_hat)
+    f_h = get_u_h_vec(f_hat, basis_fn)
+
+    def err(x):
+        return (f_h(x) - f_3d(x))**2 * x[0]
+
+    def normalization(x):
+        return (f_3d(x))**2 * x[0]
+    
+    l2_errors_legendre.append( jnp.sqrt( integral(err, x_q, w_q)) 
+                                    / jnp.sqrt( integral(normalization, x_q, w_q)) )
+    
+    # bases = (get_chebyshev_fn_x(n_r, *Omega[0]), 
+    #          get_trig_fn_x(n_θ, *Omega[1]), 
+    #          get_trig_fn_x(n_φ, *Omega[2]))
+    # shape = (n_r, n_θ, n_φ)
+    # basis_fn = jit(get_tensor_basis_fn(bases, shape))
+    
+    # M_ij = get_mass_matrix_lazy(lambda x,j: basis_fn(x, j) * jnp.sqrt(J_analytic(x)), x_q, w_q, N)
+    # M = jnp.array([ M_ij(i, j) for i in range(N) for j in range(N) ]).reshape(N, N)
+
+    # l2_proj = get_l2_projection(basis_fn, x_q, w_q, N)
+    # f_hat = l2_proj(lambda x: f_3d(x) * x[0])[:, None]
+    # f_hat = jnp.linalg.solve(M, f_hat)
+    # f_h = get_u_h_vec(f_hat, basis_fn)
+
+    # def err(x):
+    #     return (f_h(x) - f_3d(x))**2 * x[0]
+
+    # def normalization(x):
+    #     return (f_3d(x))**2 * x[0]
+    
+    # l2_errors_cheb.append( jnp.sqrt( integral(err, x_q, w_q)) 
+    #                                 / jnp.sqrt( integral(normalization, x_q, w_q)) )
+    
     # Z = jax.vmap(f_h)(x).reshape(nx, nx)
     # plt.figure(figsize=(6, 6))
     # plt.pcolormesh(X, Y, Z, shading='auto', cmap='viridis')
@@ -135,19 +255,33 @@ for _n in range(2,10):
     # plt.title('f_h - f')
     # plt.axis('equal')
     # plt.show()
-    def err(x):
-        return (f_h(x) - f_3d(x))**2 * x[0]
-
-    def normalization(x):
-        return (f_3d(x))**2 * x[0]
     
-    l2_errors.append( jnp.sqrt( integral(err, x_q, w_q)) 
-                     / jnp.sqrt( integral(normalization, x_q, w_q)) )
+    # if x.shape[1] != 3:
+    #     x = jnp.column_stack([x, jnp.ones(x.shape[0])])
+    # _j = N // 2
+    # Z = jax.vmap(basis_fn, (0, None))(x, _j).reshape(nx, nx)
+    # plt.figure(figsize=(6, 6))
+    # plt.pcolormesh(X, Y, Z, shading='auto', cmap='viridis')
+    # plt.colorbar()
+    # plt.xlabel('x')
+    # plt.ylabel('y')
+    # plt.title('{}th Zernike polynomial'.format(_j))
+    # plt.axis('equal')
+    # plt.show()
+
+    # # Assemble the mass matrix
+    # M_ij = get_mass_matrix_lazy(lambda x,j: basis_fn(x, j) * jnp.sqrt(J_analytic(x)), x_q, w_q, N)
+    # M = jnp.array([ M_ij(i, j) for i in range(N) for j in range(N) ]).reshape(N, N)
+    # plt.imshow(M)
+    # plt.colorbar()
 
 # %%
-_Ns = jnp.array(range(2,10))**2
-plt.scatter(_Ns, l2_errors, label='L2 error f - f_h')
-plt.plot(_Ns, 1000 * np.exp(-3/2 * (_Ns**0.5)), label='~ exp(-3/2 * sqrt N)', color='k')
+_Ns = jnp.array(range(2,9))**2
+plt.scatter(_Ns, l2_errors_zernike, label='zernike')
+plt.scatter(_Ns, l2_errors_zernike_radial, label='d/dr zernike')
+plt.scatter(_Ns, l2_errors_legendre, label='legendre')
+# plt.scatter(_Ns, l2_errors_cheb, label='chebyshev')
+plt.plot(_Ns, 200 * np.exp(-( _Ns**0.5)), label='~ exp(- 2 sqrt N)', color='k', linestyle='--')
 plt.yscale('log')
 plt.xlabel('N')
 plt.legend()
