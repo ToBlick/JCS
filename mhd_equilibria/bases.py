@@ -8,7 +8,11 @@ import orthax
 ### ! TODO:
 # There is some bug going on with Legendre bases under autodiff
 
-# TODO: Fix this in32 int64 business
+# TODO: Fix this int32 int64 business
+
+###
+# Fourier Basis
+###
 
 # 1D trig basis function ψ number i at point x in [0, L]:
 # normed such that ∫ ψ_i * ψ_i = 1 for all i=j and 0 otherwise
@@ -30,6 +34,11 @@ def _trig_fn_x(x, k, a, b):
 
 def get_trig_fn_x(K, a, b):
     return lambda x, k: _trig_fn_x(x, k, a, b)
+
+
+###
+# Legendre Basis
+###
 
 def _binom(n, m):
   return jnp.exp(gammaln(n + 1) - gammaln(m + 1) - gammaln(n - m + 1))
@@ -73,20 +82,10 @@ def get_polynomial_basis_fn(coeffs, a, b):
         _x = ( -(x-a)/(b-a) )**_n
         return jnp.dot(coeffs[k], _x)
     return _basis_fn
-
-# converts a linear index i to a cartesian index (i,j)
-def _lin_to_cart(i, shape):
-    return jnp.unravel_index(i, shape)
-
-def get_tensor_basis_fn(bases, shape):
-    d = len(bases)
-    # TODO: vmap?
-    def basis_fn(x, k):
-        _k = jnp.array(_lin_to_cart(k, shape), dtype=jnp.int64)
-        return jnp.prod( jnp.array( [ bases[j](x[j], _k[j]) for j in range(d)] ) )
-    return basis_fn
     
-### Zernike polynomials
+###
+# Zernike Basis
+###
 
 def _fringe_idx(n, l):
     return int( (1 + (n + jnp.abs(l)) / 2)**2 - 2 * jnp.abs(l) + jnp.floor( (1 - jnp.sign(l)) / 2 ) )
@@ -166,6 +165,22 @@ def get_zernike_fn_radial_derivative(N, a, b, c, d):
         return jnp.sqrt((2*n + 2)/Lr) * jnp.dot(coeffs[j, :], _r) * angular_term * neumann_factor + constant_offset
     return _zernike_fn_x
 
+###
+# Tensor Basis
+###
+
+# converts a linear index i to a cartesian index (i,j)
+def _lin_to_cart(i, shape):
+    return jnp.unravel_index(i, shape)
+
+def get_tensor_basis_fn(bases, shape):
+    d = len(bases)
+    # TODO: vmap?
+    def basis_fn(x, k):
+        _k = jnp.array(_lin_to_cart(k, shape), dtype=jnp.int64)
+        return jnp.prod( jnp.array( [ bases[j](x[j], _k[j]) for j in range(d)] ) )
+    return basis_fn
+
 def get_zernike_tensor_basis_fn(bases, shape):
     # TODO: vmap?
     def basis_fn(x, k):
@@ -183,3 +198,19 @@ def construct_tensor_basis(shape, Omega):
              get_trig_fn_x(n_φ, *Omega[2]))
     basis_fn = get_tensor_basis_fn(bases, shape)
     return basis_fn
+
+###
+# Discrete functions
+###
+
+def get_u_h_vec(u_hat, basis_fn):
+    _k = jnp.arange(len(u_hat), dtype=jnp.int32)
+    def u_h(x):
+        return vmap(basis_fn, (None, 0), out_axes=1)(x, _k) @ u_hat
+    return u_h
+
+def get_u_h(u_hat, basis_fn):
+    _k = jnp.arange(len(u_hat), dtype=jnp.int32)
+    def u_h(x):
+        return jnp.sum(u_hat * vmap(basis_fn, (None, 0))(x, _k))
+    return u_h

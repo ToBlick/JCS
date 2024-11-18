@@ -6,6 +6,7 @@ from functools import partial
 import numpy as np
 
 from mhd_equilibria.bases import *
+from mhd_equilibria.vector_bases import *
 from mhd_equilibria.projections import *
 from mhd_equilibria.forms import *
 from mhd_equilibria.plotting import *
@@ -200,7 +201,7 @@ f = pullback_0form(f_hat_3d, F_inv)
 
 # %%
 nx = 256
-_r = np.linspace(1e-2, 1, nx)
+_r = np.linspace(1e-3, 1, nx)
 _θ = np.linspace(0, 2*np.pi, nx)
 d = 2
 x_hat = jnp.array(jnp.meshgrid(_r, _θ)).reshape(d, nx**2).T
@@ -257,7 +258,7 @@ plt.axis('equal')
 plt.show()
 # %%
 Omega = ((0, 1), (0, 2*jnp.pi), (0, 2*jnp.pi))
-n_r, n_θ, n_φ = 5, 5, 1
+n_r, n_θ, n_φ = 16, 8, 1
 N = n_r * n_θ * n_φ
 basis_fn = construct_tensor_basis((n_r, n_θ, n_φ), Omega)
 lowres_basis_fn = construct_tensor_basis((1, 1, 1), Omega)
@@ -267,34 +268,29 @@ x_q, w_q = quadrature_grid(get_quadrature(15)(*Omega[0]),
                            get_quadrature_periodic(1)(*Omega[2]))
 
 basis_fns = (basis_fn, basis_fn, lowres_basis_fn)
-ns = (N, N, 1)
+ns_1forms = jnp.array((N, N, 1))
+N1 = jnp.sum(ns_1forms)
 
-def get_mass_matrices(bases, x_q, w_q, ns):
-    Ms = []
-    for i, basis_fn in enumerate(bases):
-        N = ns[i]
-        M_ij = get_mass_matrix_lazy(basis_fn, x_q, w_q, N)
-        M = jnp.array([ M_ij(i, j) for i in range(N) for j in range(N) ]).reshape(N, N)
-        M = jnp.where(M < 1e-10, 0.0, M)
-        Ms.append(M)
-    return Ms
+basis_fn_1forms = get_vector_basis_fn(basis_fns, ns_1forms)
+
 # %%
-Ms = get_mass_matrices(basis_fns, x_q, w_q, ns)
+M = get_mass_matrix_lazy(basis_fn_1forms, x_q, w_q, ns_1forms)
+# # assemble
+Ns = jnp.arange(N1, dtype=jnp.int32)
+M_assembled = vmap(vmap(M, (0, None)), (None, 0))(Ns, Ns)
+# M_assembled = [ M(i, j) for i in range(N1) for j in range(N1) ]
 # %%
-𝚷1 = get_l2_projection_vec(basis_fns, x_q, w_q, ns)
+# plt.imshow(M_assembled)
+# %%
+𝚷1 = get_l2_projection(basis_fn_1forms, x_q, w_q, N1)
 
 # %%
 grad_f_hat_dofs = 𝚷1(grad_f_hat)
 # %%
-def get_u_h_vec(u_hat, basis_fns):
-    # u_hat: d-tuple with n_j elements
-    _d = jnp.arange(len(u_hat), dtype=jnp.int32)
-    def u_h(x):
-        return jnp.array([ jnp.sum(u_hat[i] * vmap(basis_fns[i], (None, 0))(x, jnp.arange(len(u_hat[i]), dtype=jnp.int32))) for i in _d ])
-    return u_h
+grad_f_hat_h = get_u_h_vec(grad_f_hat_dofs, basis_fn_1forms)
 
-grad_f_hat_h = get_u_h_vec(grad_f_hat_dofs, basis_fns)
-grad_f_h = pullback_1form(grad_f_hat_h, F_inv)
+# %%
+grad_f_h = jit(pullback_1form(grad_f_hat_h, F_inv))
 grad_f_h_vals = jax.vmap(grad_f_h)(x)
 # %%
 cm = plt.get_cmap('viridis')
@@ -321,6 +317,7 @@ plt.axis('equal')
 plt.show()
 # %%
 def error_1forms(u, v, F):
+    @jit
     def _err(x):
         return u(x) - v(x)
     _int1 = inner_product_1form(_err, _err, F)
@@ -328,3 +325,5 @@ def error_1forms(u, v, F):
     return jnp.sqrt( integral(_int1, x_q, w_q) ) / jnp.sqrt( integral(_int2, x_q, w_q) )
 
 print(error_1forms(grad_f_hat_h, grad_f_hat, F))
+
+# %%

@@ -3,6 +3,7 @@ from mhd_equilibria.bases import *
 from mhd_equilibria.projections import *
 from mhd_equilibria.operators import curl, div
 from mhd_equilibria.quadratures import *
+from mhd_equilibria.vector_bases import *
 import numpy.testing as npt
 from jax import numpy as jnp
 import jax
@@ -55,6 +56,9 @@ class ProjectionTests(unittest.TestCase):
         
         # plt.plot(f_hat)
         # plt.show()
+        
+        print(jax.jacfwd(f_h)(jnp.array([0.5, 0.5, 0.5])))
+        print(jax.jacfwd(f)(jnp.array([0.5, 0.5, 0.5])))
         
         @jit
         def l2_err(x):
