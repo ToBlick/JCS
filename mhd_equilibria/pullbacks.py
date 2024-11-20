@@ -30,6 +30,14 @@ def inner_product_1form(u, v, F):
         J = jnp.linalg.det(DF)
         return u(x) @ inv33(DF.T @ DF).T @ v(x) * J
     return integrand
+
+def inner_product_0form(u, v, F):
+    # u and v are in logical domain
+    def integrand(x):
+        DF = jax.jacfwd(F)(x)
+        J = jnp.linalg.det(DF)
+        return u(x) * v(x) * J
+    return integrand
     
     
     

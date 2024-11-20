@@ -199,6 +199,13 @@ def construct_tensor_basis(shape, Omega):
     basis_fn = get_tensor_basis_fn(bases, shape)
     return basis_fn
 
+def construct_zernike_tensor_basis(shape, Omega):
+    n_r_times_n_θ, n_φ = shape
+    bases = (get_zernike_fn_x(n_r_times_n_θ, *Omega[0], *Omega[1]), 
+             get_trig_fn_x(n_φ, *Omega[2]))
+    basis_fn = get_zernike_tensor_basis_fn(bases, shape)
+    return basis_fn
+
 ###
 # Discrete functions
 ###
