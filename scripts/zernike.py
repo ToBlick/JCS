@@ -87,7 +87,7 @@ J_at_x = vmap(J_analytic)(x_q)
 n_r = 7
 n_θ = 3
 n_φ = 1
-bases = (get_zernike_fn_radial_derivative(n_r*n_θ, *Omega[0], *Omega[1]), get_trig_fn_x(n_φ, *Omega[2]))
+bases = (get_zernike_fn_radial_derivative(n_r*n_θ, *Omega[0], *Omega[1]), get_trig_fn(n_φ, *Omega[2]))
 shape = (n_r*n_θ, n_φ)
 basis_fn = jit(get_zernike_tensor_basis_fn(bases, shape))
 N = n_r*n_θ*n_φ
@@ -111,7 +111,7 @@ plt.scatter(jnp.arange(N), f_hat)
 n_r = 4
 n_θ = 4
 n_φ = 1
-bases = (get_legendre_fn_x(n_r, *Omega[0]), get_trig_fn_x(n_θ, *Omega[1]), get_trig_fn_x(n_φ, *Omega[2]))
+bases = (get_legendre_fn_x(n_r, *Omega[0]), get_trig_fn(n_θ, *Omega[1]), get_trig_fn(n_φ, *Omega[2]))
 shape = (n_r, n_θ, n_φ)
 basis_fn = jit(get_tensor_basis_fn(bases, shape))
 N = n_r*n_θ*n_φ
@@ -147,7 +147,7 @@ for _n in range(2,9):
     print(N)
     
     bases = (get_zernike_fn_radial_derivative(n_r*n_θ, *Omega[0], *Omega[1]), 
-             get_trig_fn_x(n_φ, *Omega[2]))
+             get_trig_fn(n_φ, *Omega[2]))
     shape = (n_r*n_θ, n_φ)
     basis_fn = jit(get_zernike_tensor_basis_fn(bases, shape))
     
@@ -169,7 +169,7 @@ for _n in range(2,9):
                                     / jnp.sqrt( integral(normalization, x_q, w_q)) )
     
     bases = (get_zernike_fn_x(n_r*n_θ, *Omega[0], *Omega[1]), 
-             get_trig_fn_x(n_φ, *Omega[2]))
+             get_trig_fn(n_φ, *Omega[2]))
     shape = (n_r*n_θ, n_φ)
     basis_fn = jit(get_zernike_tensor_basis_fn(bases, shape))
     
@@ -191,8 +191,8 @@ for _n in range(2,9):
                                     / jnp.sqrt( integral(normalization, x_q, w_q)) )
     
     bases = (get_legendre_fn_x(n_r, *Omega[0]), 
-             get_trig_fn_x(n_θ, *Omega[1]), 
-             get_trig_fn_x(n_φ, *Omega[2]))
+             get_trig_fn(n_θ, *Omega[1]), 
+             get_trig_fn(n_φ, *Omega[2]))
     shape = (n_r, n_θ, n_φ)
     basis_fn = jit(get_tensor_basis_fn(bases, shape))
     

@@ -77,6 +77,30 @@ def get_curl_matrix_lazy(basis_fn, x_q, w_q, F):
         return l2_product(get_basis(i), curl(get_basis(j)), x_q, w_q)
     return C_ij
 
+def get_1_form_trace_lazy(basis_fn, x_q, w_q, F):
+    def get_basis(k):
+        return lambda x: basis_fn(x, k)
+    def l2_product(A, E, x_q, w_q):
+        def integrand(x):
+            return (jnp.sum(A(x) * jnp.array([0,1,1])) 
+                    + jnp.sum(E(x) * jnp.array([0,1,1])))/2
+        return integral(integrand, x_q, w_q)
+    def T_ij(i, j):
+        return l2_product(get_basis(i), get_basis(j), x_q, w_q)
+    return T_ij
+
+def get_2_form_trace_lazy(basis_fn, x_q, w_q, F):
+    def get_basis(k):
+        return lambda x: basis_fn(x, k)
+    def l2_product(B, S, x_q, w_q):
+        def integrand(x):
+            return (jnp.sum(B(x) * jnp.array([1,0,0])) 
+                    + jnp.sum(S(x) * jnp.array([1,0,0])))
+        return integral(integrand, x_q, w_q)
+    def T_ij(i, j):
+        return l2_product(get_basis(i), get_basis(j), x_q, w_q)
+    return T_ij
+
 # def get_curl_form(basis_fn):
 #     def _C(i,j,x):
 #         # compute the inner product of the Laplacian of the ith basis function
@@ -87,3 +111,6 @@ def get_curl_matrix_lazy(basis_fn, x_q, w_q, F):
 
 # # assemble
 # K = vmap(vmap(_K, (0, None, None)), (None, 0, None))(n_s, n_s, x_q)
+
+def assemble(M_lazy, ns, ms):
+    return jax.vmap(lambda i: jax.vmap(lambda j: M_lazy(i, j))(ns))(ms)

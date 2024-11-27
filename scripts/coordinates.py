@@ -78,7 +78,7 @@ x = x.transpose(1, 2, 3, 0).reshape(1*(nx)**2, 3)
 # %%
 ### Basis
 n = 32
-_bases = (get_trig_fn_x(n, 0, 2*jnp.pi), )
+_bases = (get_trig_fn(n, 0, 2*jnp.pi), )
 shape = (n,)
 basis_fn = get_tensor_basis_fn(_bases, shape) # basis_fn(x, k)
 _ns = jnp.arange(n, dtype=jnp.int32)
@@ -144,10 +144,10 @@ for _ in range(100):
 # %%
 cmap = plt.get_cmap("inferno")
 
-Omega = ((0, 1), (0, 2*jnp.pi), (0, 2*jnp.pi))
+Omega = ((0.2, 1), (0, 2*jnp.pi), (0, 2*jnp.pi))
 
-_r = jnp.linspace(*Omega[0], nx)
-_θ = jnp.linspace(*Omega[1], nx)
+_r = jnp.linspace(*Omega[0], nx)[1:]
+_θ = jnp.linspace(*Omega[1], nx)[1:]
 fig, ax = plt.subplots(figsize=(4, 4))
 ax.contourf(_R, _Z, vmap(lambda y: jnp.abs(f(y)))(x).reshape(nx, nx).T, 100)
 ax.contour(_R, _Z, vmap(f)(x).reshape(nx, nx).T, levels = [0], colors='white')    
@@ -180,10 +180,15 @@ def F(x):
     Z = ς(θ) * r * jnp.sin(θ)
     R = jnp.squeeze(R)
     Z = jnp.squeeze(Z)
-    return jnp.array([R, phi, Z])
+    X = R * jnp.cos(phi)
+    Y = R * jnp.sin(phi)
+    return jnp.array([X, Y, Z])
     
 def F_inv(x):
-    R, phi, Z = x
+    X, Y, Z = x
+    R = jnp.sqrt(X**2 + Y**2)
+    phi = jnp.arctan2(Y, X)
+    # R, phi, Z = x
     z = - R0 * phi
     θ = jnp.arctan2(Z, R - R0)
     _θ = jnp.array([θ])
@@ -202,7 +207,7 @@ def f_hat_3d(x):
 f = pullback_0form(f_hat_3d, F_inv)
 
 # %%
-nx = 256
+nx = len(_r)
 d = 2
 x_hat = jnp.array(jnp.meshgrid(_r, _θ)).reshape(d, nx**2).T
 
@@ -260,7 +265,7 @@ plt.ylabel('Z')
 plt.axis('equal')
 plt.show()
 # %%
-n_r, n_θ, n_φ = 20, 1, 1
+n_r, n_θ, n_φ = 28, 1, 1
 N = n_r * n_θ * n_φ
 basis_fn = construct_zernike_tensor_basis((n_r * n_θ, n_φ), Omega)
 lowres_basis_fn = construct_zernike_tensor_basis((1, 1), Omega)
@@ -417,7 +422,9 @@ C_assembled = vmap(vmap(C, (None, 0)), (0, None))(jnp.arange(N1), jnp.arange(N1)
 
 def A(x):
     def _Psi(x):
-        R, φ, Z = x
+        X, Y, Z = x
+        R = jnp.sqrt(X**2 + Y**2)
+        phi = jnp.arctan2(Y, X)
         _κ = κ
         _q = q
         return B0/(2 * R0**2 * _κ * _q) * ( R**2 * Z**2 + _κ**2/4 * (R**2 - R0**2)**2 )
@@ -452,17 +459,17 @@ B_h_vals = jax.vmap(B_h)(x)
 # %%
 cm = plt.get_cmap('viridis')
 plt.figure(figsize=(6, 6))
-plt.quiver(        x[::80,0], 
-                   x[::80,2],
-            H_h_vals[::80,0],
-            H_h_vals[::80,2],
+plt.quiver(        x[::180,0], 
+                   x[::180,2],
+            H_h_vals[::180,0],
+            H_h_vals[::180,2],
             color = 'k',
             label = 'H'
             )
-plt.quiver(        x[::80,0], 
-                   x[::80,2],
-            B_h_vals[::80,0],
-            B_h_vals[::80,2],
+plt.quiver(        x[::180,0], 
+                   x[::180,2],
+            B_h_vals[::180,0],
+            B_h_vals[::180,2],
             color = 'c',
             label = 'B'
             )
@@ -502,22 +509,39 @@ dB_ref_dofs = jnp.linalg.solve(M1_ref_assembled, C_assembled @ E_ref_dofs)
 dB_ref_h = jit(get_u_h_vec(dB_ref_dofs, basis_fn_2forms))
 dB_h = jit(pullback_2form(dB_ref_h, F_inv))
 dB_h_vals = jax.vmap(dB_h)(x)
-# %%
-# cm = plt.get_cmap('viridis')
-# plt.figure(figsize=(6, 6))
-# plt.quiver(         x[::80,0], 
-#                     x[::80,2],
-#             dB_h_vals[::80,0],
-#             dB_h_vals[::80,2],
-#             color = 'k',
-#             label = 'dB'
-#             )
-# plt.xlabel('R')
-# plt.ylabel('Z')
-# plt.legend()
-# plt.axis('equal')
-# plt.show()
 
+# %%
+
+def plot_vector_form(dofs, basis, F_inv, pullback, x, plot_every=180):
+    u_ref_h = jit(get_u_h_vec(dofs, basis))
+    u_h = jit(pullback(u_ref_h, F_inv))
+    u_h_vals = jax.vmap(u_h)(x)
+    plt.figure(figsize=(6, 6))
+    plt.quiver(        x[::plot_every,0], 
+                       x[::plot_every,2],
+                u_h_vals[::plot_every,0],
+                u_h_vals[::plot_every,2],
+                color = 'k',
+                )
+    plt.xlabel('R')
+    plt.ylabel('Z')
+    plt.legend()
+    plt.axis('equal')
+    plt.show()
+
+# %%
+plot_vector_form(B_ref_dofs, basis_fn_2forms, F_inv, pullback_2form, x)
+
+# %%
+plot_vector_form(H_ref_dofs, basis_fn_1forms, F_inv, pullback_1form, x)
+
+# %%
+plot_vector_form(jnp.zeros_like(H_ref_dofs).at[0].set(1.0), basis_fn_1forms, F_inv, pullback_1form, x)
+
+# %%
+plot_vector_form(jnp.zeros_like(B_ref_dofs).at[5].set(1.0), basis_fn_2forms, F_inv, pullback_2form, x)
+
+# %%
 B_ref_dofs_0 = B_ref_dofs
 B_ref_h_0 = jit(get_u_h_vec(B_ref_dofs_0, basis_fn_2forms))
 B_h_0 = jit(pullback_2form(B_ref_h, F_inv))
@@ -528,6 +552,17 @@ dE_values = []
 
 M11 = M1_assembled
 M12 = M1_ref_assembled
+
+# %%
+x_q_bdy, w_q_bdy = quadrature_grid((jnp.ones(1), jnp.ones(1)),
+                           get_quadrature_periodic(64)(*Omega[1]),
+                           get_quadrature_periodic(1)(*Omega[2]))
+
+T1 = get_1_form_trace_lazy(basis_fn_1forms, x_q_bdy, w_q_bdy, F)
+T2 = get_2_form_trace_lazy(basis_fn_2forms, x_q_bdy, w_q_bdy, F)
+# %%
+T1_assembled = vmap(vmap(T1, (0, None)), (None, 0))(jnp.arange(N1), jnp.arange(N1))
+T2_assembled = vmap(vmap(T2, (0, None)), (None, 0))(jnp.arange(N1), jnp.arange(N1))
 # %%
 eta = 1e-3
 
@@ -563,15 +598,15 @@ B_h_vals = jax.vmap(B_h)(x)
 
 cm = plt.get_cmap('viridis')
 plt.figure(figsize=(6, 6))
-plt.quiver(         x[::80,0], 
-                    x[::80,2],
+plt.quiver(        x[::80,0], 
+                   x[::80,2],
             B_h_vals[::80,0],
             B_h_vals[::80,2],
             color = 'k',
             label = 'B(t=1)'
             )
-plt.quiver(         x[::80,0], 
-                    x[::80,2],
+plt.quiver(          x[::80,0], 
+                     x[::80,2],
             B_h_0_vals[::80,0],
             B_h_0_vals[::80,2],
             color = 'c',

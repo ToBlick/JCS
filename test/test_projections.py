@@ -45,7 +45,7 @@ class ProjectionTests(unittest.TestCase):
             return x[0]**3 * jnp.sin(2*jnp.pi*x[1]/L) + jnp.sin(4*jnp.pi*x[2]/L) + 4 * x[0]**2 * jnp.sin(8*jnp.pi*x[2]/L)
         
         n1, n2, n3 = 4, 6, 8
-        _bases = (get_legendre_fn_x(n1, 0, 1), get_trig_fn_x(n2, 0, 1), get_trig_fn_x(n3, 0, 1))
+        _bases = (get_legendre_fn_x(n1, 0, 1), get_trig_fn(n2, 0, 1), get_trig_fn(n3, 0, 1))
         shape = (n1, n2, n3)
         basis_fn = get_tensor_basis_fn(_bases, shape) # basis_fn(x, k)
         
@@ -95,7 +95,7 @@ class ProjectionTests(unittest.TestCase):
         n_r = _n
         n_θ = _n
         n_φ = 1
-        bases = (get_zernike_fn_x(n_r*n_θ, *Omega[0], *Omega[1]), get_trig_fn_x(n_φ, *Omega[2]))
+        bases = (get_zernike_fn_x(n_r*n_θ, *Omega[0], *Omega[1]), get_trig_fn(n_φ, *Omega[2]))
         shape = (n_r*n_θ, n_φ)
         basis_fn = jit(get_zernike_tensor_basis_fn(bases, shape))
         N = n_r*n_θ*n_φ

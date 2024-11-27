@@ -14,7 +14,7 @@ import chex
 
 class PullbackTests(unittest.TestCase):
     
-    def test_forms(self): 
+    def test_forms(self):
         key = jax.random.PRNGKey(0)
         n = 1000
         x_hat = jax.random.uniform(key, (n, 3))

@@ -59,7 +59,7 @@ class BasisTests(unittest.TestCase):
         nx = 1000
         L = 2.71
         
-        trig_fn_x = jit(get_trig_fn_x(5, 0, L))
+        trig_fn_x = jit(get_trig_fn(5, 0, L))
         
         _x = np.linspace(0, L, nx)
         for k in range(1, 10):
@@ -92,7 +92,7 @@ class BasisTests(unittest.TestCase):
         n_x = 100
         
         Omega = ((0, 1), (0, 2*jnp.pi))
-        bases = (get_legendre_fn_x(n_r, *Omega[0]), get_trig_fn_x(n_θ, *Omega[1]))
+        bases = (get_legendre_fn_x(n_r, *Omega[0]), get_trig_fn(n_θ, *Omega[1]))
         shape = (n_r, n_θ)
         
         basis_fn = get_tensor_basis_fn(bases, shape)

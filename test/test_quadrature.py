@@ -39,7 +39,7 @@ class QuadratureTests(unittest.TestCase):
         n_φ = 8
         
         Omega = ((0, 1), (0, 2*jnp.pi), (0, 2*jnp.pi))
-        bases = (get_legendre_fn_x(n_r, *Omega[0]), get_trig_fn_x(n_θ, *Omega[1]), get_trig_fn_x(n_φ, *Omega[2]))
+        bases = (get_legendre_fn_x(n_r, *Omega[0]), get_trig_fn(n_θ, *Omega[1]), get_trig_fn(n_φ, *Omega[2]))
         shape = (n_r, n_θ, n_φ)
         basis_fn = jit(get_tensor_basis_fn(bases, shape))
         
@@ -59,7 +59,7 @@ class QuadratureTests(unittest.TestCase):
             npt.assert_allclose(jnp.sum(w_q * ψ1**2), 1, rtol=1e-6)
             npt.assert_allclose(jnp.sum(w_q * ψ0 * ψ1), 0, atol=1e-12)
             
-        bases = (get_zernike_fn_x(n_r*n_θ, *Omega[0], *Omega[1]), get_trig_fn_x(n_φ, *Omega[2]))
+        bases = (get_zernike_fn_x(n_r*n_θ, *Omega[0], *Omega[1]), get_trig_fn(n_φ, *Omega[2]))
         shape = (n_r*n_θ, n_φ)
         basis_fn = jit(get_zernike_tensor_basis_fn(bases, shape))
         def J_analytic(x):

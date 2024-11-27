@@ -16,7 +16,7 @@ import orthax
 
 # 1D trig basis function ψ number i at point x in [0, L]:
 # normed such that ∫ ψ_i * ψ_i = 1 for all i=j and 0 otherwise
-def _trig_fn_x(x, k, a, b):
+def _trig_fn(x, k, a, b):
     L = b - a
     k_half = (k+1)//2
     x = 2 * jnp.pi * k_half * (x - a) / L
@@ -32,8 +32,8 @@ def _trig_fn_x(x, k, a, b):
     _val2 = jax.lax.cond(k == 0, r1, r2, x)
     return _val * _val2
 
-def get_trig_fn_x(K, a, b):
-    return lambda x, k: _trig_fn_x(x, k, a, b)
+def get_trig_fn(K, a, b):
+    return lambda x, k: _trig_fn(x, k, a, b)
 
 
 ###
@@ -194,15 +194,15 @@ def get_zernike_tensor_basis_fn(bases, shape):
 def construct_tensor_basis(shape, Omega):
     n_r, n_θ, n_φ = shape
     bases = (get_legendre_fn_x(n_r, *Omega[0]), 
-             get_trig_fn_x(n_θ, *Omega[1]),
-             get_trig_fn_x(n_φ, *Omega[2]))
+             get_trig_fn(n_θ, *Omega[1]),
+             get_trig_fn(n_φ, *Omega[2]))
     basis_fn = get_tensor_basis_fn(bases, shape)
     return basis_fn
 
 def construct_zernike_tensor_basis(shape, Omega):
     n_r_times_n_θ, n_φ = shape
     bases = (get_zernike_fn_x(n_r_times_n_θ, *Omega[0], *Omega[1]), 
-             get_trig_fn_x(n_φ, *Omega[2]))
+             get_trig_fn(n_φ, *Omega[2]))
     basis_fn = get_zernike_tensor_basis_fn(bases, shape)
     return basis_fn
 
