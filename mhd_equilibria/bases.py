@@ -177,7 +177,7 @@ def get_tensor_basis_fn(bases, shape):
     d = len(bases)
     # TODO: vmap?
     def basis_fn(x, k):
-        _k = jnp.array(_lin_to_cart(k, shape), dtype=jnp.int64)
+        _k = jnp.array(_lin_to_cart(k, shape), dtype=jnp.int32)
         return jnp.prod( jnp.array( [ bases[j](x[j], _k[j]) for j in range(d)] ) )
     return basis_fn
 
@@ -185,7 +185,7 @@ def get_zernike_tensor_basis_fn(bases, shape):
     # TODO: vmap?
     def basis_fn(x, k):
         rθ, z = x[:-1], x[-1]
-        _k = jnp.array(_lin_to_cart(k, shape), dtype=jnp.int64)
+        _k = jnp.array(_lin_to_cart(k, shape), dtype=jnp.int32)
         poloidal_plane = bases[0](rθ, _k[0])
         toroidal = bases[1](z, _k[1])
         return poloidal_plane * toroidal

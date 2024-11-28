@@ -38,7 +38,7 @@ dx_sp_2 = grad(sp)
 
 def f(x):
     return dx_sp_2(x, 3)
-x_q_1d, w_q_1d = get_quadrature(41)(0, 1)
+x_q_1d, w_q_1d = get_quadrature_spectral(41)(0, 1)
 _M = get_mass_matrix_lazy(dx_sp, x_q_1d, w_q_1d, None)
 M = assemble(_M, 
              jnp.arange(n_dx , dtype=jnp.int32), 

@@ -272,7 +272,7 @@ lowres_basis_fn = construct_zernike_tensor_basis((1, 1), Omega)
 # basis_fn = construct_tensor_basis((n_r, n_θ, n_φ), Omega)
 # lowres_basis_fn = construct_tensor_basis((1, 1, 1), Omega)
 
-x_q, w_q = quadrature_grid(get_quadrature(61)(*Omega[0]),
+x_q, w_q = quadrature_grid(get_quadrature_spectral(61)(*Omega[0]),
                            get_quadrature_periodic(64)(*Omega[1]),
                            get_quadrature_periodic(1)(*Omega[2]))
 
@@ -369,6 +369,10 @@ grad_f_hat_dofs = jnp.linalg.solve(M1_ref_assembled, grad_f_hat_dofs)
 grad_f_hat_h = get_u_h_vec(grad_f_hat_dofs, basis_fn_1forms)
 grad_f_h = jit(pullback_1form(grad_f_hat_h, F_inv))
 grad_f_h_vals = jax.vmap(grad_f_h)(x)
+
+# %%
+grad_f_hat_dofs
+
 # %%
 cm = plt.get_cmap('viridis')
 plt.figure(figsize=(12, 12))

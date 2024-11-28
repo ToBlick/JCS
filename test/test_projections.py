@@ -87,7 +87,7 @@ class ProjectionTests(unittest.TestCase):
             return f(jnp.array([r, θ]))
         
         Omega = ((0, 1), (0, 2*jnp.pi), (0, 2*jnp.pi))
-        x_q, w_q = quadrature_grid(get_quadrature(31)(*Omega[0]),
+        x_q, w_q = quadrature_grid(get_quadrature_spectral(31)(*Omega[0]),
                                    get_quadrature_periodic(64)(*Omega[1]),
                                    get_quadrature_periodic(1)(*Omega[2]))
         

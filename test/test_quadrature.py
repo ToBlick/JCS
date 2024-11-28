@@ -17,11 +17,11 @@ class QuadratureTests(unittest.TestCase):
         f = lambda x: jnp.sin(x * 20 * jnp.pi)**2
         npt.assert_allclose(jnp.sum(w_q * vmap(f)(x_q)), 0.5, rtol=1e-15)
         
-        x_q, w_q = get_quadrature(31)(0, 1)
+        x_q, w_q = get_quadrature_spectral(31)(0, 1)
         f = lambda x: jnp.exp(x)
         npt.assert_allclose(jnp.sum(w_q * vmap(f)(x_q)), jnp.exp(1) - 1, rtol=1e-15)
         
-        x_q, w_q = quadrature_grid(get_quadrature(31)(0, 1),
+        x_q, w_q = quadrature_grid(get_quadrature_spectral(31)(0, 1),
                                    get_quadrature_periodic(16)(0, 2*jnp.pi),
                                    get_quadrature_periodic(16)(0, 2*jnp.pi))
         
@@ -43,7 +43,7 @@ class QuadratureTests(unittest.TestCase):
         shape = (n_r, n_θ, n_φ)
         basis_fn = jit(get_tensor_basis_fn(bases, shape))
         
-        x_q, w_q = quadrature_grid(get_quadrature(31)(*Omega[0]),
+        x_q, w_q = quadrature_grid(get_quadrature_spectral(31)(*Omega[0]),
                                    get_quadrature_periodic(32)(*Omega[1]),
                                    get_quadrature_periodic(32)(*Omega[2]))
         

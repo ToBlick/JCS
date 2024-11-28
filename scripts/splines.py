@@ -141,7 +141,7 @@ plt.plot(__x, 2 * jnp.pi * jnp.cos(2 * jnp.pi * __x))
 ### quadrature points
 from mhd_equilibria.quadratures import *
 
-x_q_1d, w_q_1d = get_quadrature(61)(0, 1)
+x_q_1d, w_q_1d = get_quadrature_spectral(61)(0, 1)
 
 def M_p_lazy(i, j):
     return vmap(lambda x: p_spline(i, x) * p_spline(j, x))(x_q_1d) @ w_q_1d
@@ -233,7 +233,7 @@ def c_basis(x, i):
 plt.plot(_x, vmap(lambda x: c_spline(x, 0))(_x))
 plt.plot(_x, vmap(lambda x: dx_c_spline(x, 0))(_x))
 # %%
-x_q, w_q = quadrature_grid(get_quadrature(61)(*Omega[0]),
+x_q, w_q = quadrature_grid(get_quadrature_spectral(61)(*Omega[0]),
             get_quadrature_periodic(64)(*Omega[1]),
             get_quadrature_periodic(1)(*Omega[2]))
 

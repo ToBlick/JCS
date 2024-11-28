@@ -38,9 +38,9 @@ def get_vector_basis_fn(bases, shape):
         return jax.lax.cond(I < shape[0] + shape[1], basis_fn_1, basis_fn_2, x, I)
     return basis_fn
 
-def get_u_h_vec(u_hat, basis_fns):
-    # u_hat: d-tuple with n_j elements
-    _d = jnp.arange(len(u_hat), dtype=jnp.int32)
-    def u_h(x):
-        return jnp.array([ jnp.sum(u_hat[i] * vmap(basis_fns[i], (None, 0))(x, jnp.arange(len(u_hat[i]), dtype=jnp.int32))) for i in _d ])
-    return u_h
+# def get_u_h_vec(u_hat, basis_fns):
+#     # u_hat: d-tuple with n_j elements
+#     _d = jnp.arange(len(u_hat), dtype=jnp.int32)
+#     def u_h(x):
+#         return jnp.array([ jnp.sum(u_hat[i] * vmap(basis_fns[i], (None, 0))(x, jnp.arange(len(u_hat[i]), dtype=jnp.int32))) for i in _d ])
+#     return u_h
