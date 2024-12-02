@@ -37,25 +37,36 @@ plt.show()
 dx_sp_2 = grad(sp)
 
 def f(x):
-    return dx_sp_2(x, 3)
+    return jnp.cos(2 * x * 2 * jnp.pi)
 x_q_1d, w_q_1d = get_quadrature_spectral(41)(0, 1)
-_M = get_mass_matrix_lazy(dx_sp, x_q_1d, w_q_1d, None)
-M = assemble(_M, 
-             jnp.arange(n_dx , dtype=jnp.int32), 
-             jnp.arange(n_dx , dtype=jnp.int32))
-print(jnp.linalg.cond(M))
+_M0 = get_mass_matrix_lazy(sp, x_q_1d, w_q_1d, None)
+M0 = assemble(_M0, n, n)
+_M1 = get_mass_matrix_lazy(dx_sp, x_q_1d, w_q_1d, None)
+M1 = assemble(_M1, n_dx, n_dx)
 # %%
-proj = get_l2_projection(dx_sp, x_q_1d, w_q_1d, n_dx)
-f_hat = jnp.linalg.solve(M, proj(f))
+
+proj0 = get_l2_projection(sp, x_q_1d, w_q_1d, n)
+f_hat = jnp.linalg.solve(M0, proj0(f))
+f_h = get_u_h(f_hat, sp)
 # %%
-f_h = get_u_h(f_hat, dx_sp)
+proj1 = get_l2_projection(dx_sp, x_q_1d, w_q_1d, n_dx)
+gradf_hat = jnp.linalg.solve(M1, proj1(grad(f_h)))
+gradf_h = get_u_h(gradf_hat, dx_sp)
+
+gradf_hat2 = jnp.linalg.solve(M0, proj0(grad(f)))
+gradf_h2 = get_u_h(gradf_hat2, dx_sp)
 # %%
 nx = 256
 _x = jnp.linspace(0, 1, nx)    
-plt.plot(_x, vmap(f)(_x), label='f')
-plt.plot(_x, vmap(f_h)(_x), label='f_h')
+# plt.plot(_x, vmap(f)(_x), label='f')
+plt.plot(_x, vmap(grad(f))(_x), label='grad f')
+# plt.plot(_x, vmap(f_h)(_x), label='f_h')
+plt.plot(_x, vmap(grad(f_h))(_x), label='grad(f_h)')
+plt.plot(_x, vmap(gradf_h)(_x), label='(grad f)_h1')
+plt.plot(_x, vmap(gradf_h2)(_x), label='(grad f)_h0')
+plt.legend()
 
-npt.assert_allclose(vmap(f_h)(_x), vmap(f)(_x), atol=1e-15)
+# npt.assert_allclose(vmap(f_h)(_x), vmap(f)(_x), atol=1e-15)
 # %%
 
 # %%

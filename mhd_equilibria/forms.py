@@ -112,5 +112,7 @@ def get_2_form_trace_lazy(basis_fn, x_q, w_q, F):
 # # assemble
 # K = vmap(vmap(_K, (0, None, None)), (None, 0, None))(n_s, n_s, x_q)
 
-def assemble(M_lazy, ns, ms):
-    return jax.vmap(lambda i: jax.vmap(lambda j: M_lazy(i, j))(ns))(ms)
+def assemble(M_lazy, n, m):
+    ns = jnp.arange(n)
+    ms = jnp.arange(m)
+    return vmap(vmap(M_lazy, (None, 0)), (0, None))(ns, ms)

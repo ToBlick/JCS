@@ -27,11 +27,9 @@ def get_vector_basis_fn(bases, shape):
     def basis_fn_0(x, i):
         return jnp.zeros(3).at[0].set(bases[0](x, i))
     def basis_fn_1(x, i):
-        i -= shape[0]
-        return jnp.zeros(3).at[1].set(bases[1](x, i))
+        return jnp.zeros(3).at[1].set(bases[1](x, i - shape[0]))
     def basis_fn_2(x, i):
-        i -= shape[0] + shape[1]
-        return jnp.zeros(3).at[2].set(bases[2](x, i))
+        return jnp.zeros(3).at[2].set(bases[2](x, i - shape[0] - shape[1]))
     def basis_fn(x, I):
         return jax.lax.cond(I < shape[0], basis_fn_0, basis_fn_1_or_2, x, I)
     def basis_fn_1_or_2(x, I):
