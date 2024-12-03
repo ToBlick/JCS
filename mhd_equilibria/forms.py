@@ -112,7 +112,28 @@ def get_2_form_trace_lazy(basis_fn, x_q, w_q, F):
 # # assemble
 # K = vmap(vmap(_K, (0, None, None)), (None, 0, None))(n_s, n_s, x_q)
 
-def assemble(M_lazy, n, m):
-    ns = jnp.arange(n)
-    ms = jnp.arange(m)
-    return vmap(vmap(M_lazy, (None, 0)), (0, None))(ns, ms)
+# def assemble(M_lazy, ns, ms):
+#     return vmap(vmap(M_lazy, (None, 0)), (0, None))(ns, ms)
+
+@partial(jit, static_argnums=(0,))
+def assemble(f, ns, ms):
+    def scan_fn(carry, j):
+        row = jax.vmap(f, (None, 0))(j, ms)
+        return carry, row
+    # M = jnp.zeros((len(ns), len(ms)))
+    _, M = jax.lax.scan(scan_fn, None, ns)
+    return M
+
+def get_sparse_operator(M_lazy, ns, ms):
+    M = assemble(M_lazy, ns, ms)
+    return jax.experimental.sparse.bcsr_fromdense(M)
+
+def get_mass_matrix_lazy_12(basis_1, basis_2, x_q, w_q, F):
+    DF = jacfwd(F)
+    def f(k):
+        return lambda x: basis_1(x, k)
+    def g(k):
+        return lambda x: basis_2(x, k)
+    def M_ij(i, j):
+        return l2_product(f(i), g(j), x_q, w_q)
+    return M_ij
