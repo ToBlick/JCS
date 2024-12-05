@@ -27,6 +27,16 @@ def get_mass_matrix_lazy_0(basis_fn, x_q, w_q, F):
         return l2_product(f(i), g(j), x_q, w_q)
     return M_ij
 
+def get_mass_matrix_lazy_12(basis_fn1, basis_fn2, x_q, w_q, F):
+    DF = jacfwd(F)
+    def A(k):
+        return lambda x: basis_fn1(x, k)
+    def E(k):
+        return lambda x: basis_fn2(x, k)
+    def M_ij(i, j):
+        return l2_product(A(i), E(j), x_q, w_q)
+    return M_ij
+
 def get_mass_matrix_lazy_1(basis_fn, x_q, w_q, F):
     DF = jacfwd(F)
     def A(k):
