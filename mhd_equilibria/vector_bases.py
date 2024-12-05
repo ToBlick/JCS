@@ -4,12 +4,54 @@ from jax import jit, vmap
 
 from mhd_equilibria.bases import get_tensor_basis_fn, get_trig_fn
 from mhd_equilibria.splines import get_spline
+from functools import partial
 
-#TODO: This feels very inelegant
-def get_scalar_basis_fn(basis, shape):
-    def basis_fn(x, i):
-        return jnp.ones(1)*(basis(x, i))
-    return basis_fn
+# #TODO: This feels very inelegant
+# def get_scalar_basis_fn(basis, shape):
+#     def basis_fn(x, i):
+#         return jnp.ones(1)*(basis(x, i))
+#     return basis_fn
+
+def unravel_vector_index(I, shapes):
+    # I is a linear index that comprises three indices:
+    # First, it is a stacked linear index for all 3 components
+    # Second, it is a linear index for each component that unravels into i,j,k
+    # so we need to unravel I into (d,i,j,k).
+    shape_1, shape_2, shape_3 = shapes
+    N1 = shape_1[0] * shape_1[1] * shape_1[2]
+    N2 = shape_2[0] * shape_2[1] * shape_2[2]
+    
+    def dijk_if_I_1(x):
+        i, j, k = jnp.unravel_index(I, shape_1)
+        return 0, i, j, k
+    def dijk_if_I_2(x):
+        i, j, k = jnp.unravel_index(I, shape_2)
+        return 1, i, j, k
+    def dijk_if_I_3(x):
+        i, j, k = jnp.unravel_index(I, shape_3)
+        return 2, i, j, k
+    def dijk_if_I_1or2(x):
+        return jax.lax.cond(I < N1, dijk_if_I_1, dijk_if_I_2, None)
+    return jax.lax.cond(I < N1 + N2, dijk_if_I_1or2, dijk_if_I_3, None)
+
+def ravel_vector_index(dijk, shapes):
+    # I is a linear index that comprises three indices:
+    # First, it is a stacked linear index for all 3 components
+    # Second, it is a linear index for each component that unravels into i,j,k
+    # so we need to unravel I into (d,i,j,k).
+    shape_1, shape_2, shape_3 = shapes
+    N1 = shape_1[0] * shape_1[1] * shape_1[2]
+    N2 = shape_2[0] * shape_2[1] * shape_2[2]
+    d, i, j, k = dijk
+    def I_if_d_is_zero(x):
+        return jnp.ravel_multi_index((i, j, k), shape_1, mode='clip')
+    def I_if_d_is_one(x):
+        return jnp.ravel_multi_index((i, j, k), shape_2, mode='clip') + N1
+    def I_if_d_is_two(x):
+        return jnp.ravel_multi_index((i, j, k), shape_3, mode='clip') + N1 + N2
+    def I_if_d_is_zero_or_one(x):
+        return jax.lax.cond(d == 0, I_if_d_is_zero, I_if_d_is_one, None)
+    return jax.lax.cond(d == 2, I_if_d_is_two, I_if_d_is_zero_or_one, None)
 
 def get_vector_basis_fn(bases, shape):
     def basis_fn_0(x, i):
@@ -18,6 +60,7 @@ def get_vector_basis_fn(bases, shape):
         return jnp.zeros(3).at[1].set(bases[1](x, i - shape[0]))
     def basis_fn_2(x, i):
         return jnp.zeros(3).at[2].set(bases[2](x, i - shape[0] - shape[1]))
+    
     def basis_fn(x, I):
         return jax.lax.cond(I < shape[0], basis_fn_0, basis_fn_1_or_2, x, I)
     def basis_fn_1_or_2(x, I):

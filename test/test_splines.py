@@ -30,14 +30,9 @@ class SplineTests(unittest.TestCase):
         for type in ["clamped", "periodic"]:
 
             sp = jit(get_spline(n, p, type))
-
-            # if type == 'periodic':
-            #     n = n - p
-
             def f(x):
                 return jnp.cos(2*jnp.pi*x)
             x_q_1d, w_q_1d = get_quadrature_composite(jnp.linspace(0, 1, n - p + 1), 15)
-            # x_q_1d, w_q_1d = get_quadrature_spectral(41)(0, 1)
             _M0 = get_mass_matrix_lazy(sp, x_q_1d, w_q_1d, None)
             M0 = assemble(_M0, jnp.arange(n), jnp.arange(n))
                     
