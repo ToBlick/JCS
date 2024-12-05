@@ -32,7 +32,7 @@ def A(x):
 B = curl(A)
 
 # %%
-nx = 32
+nx = 64
 _x1 = jnp.linspace(0, 1, nx)
 _x2 = jnp.linspace(0, 1, nx)
 _x3 = jnp.zeros(1)
