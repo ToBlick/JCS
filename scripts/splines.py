@@ -49,8 +49,8 @@ def spline(x, i, T, p, n, m, type):
 # %% 
 import jax.random
 key = jax.random.PRNGKey(0)
-n = 10
-p = 3
+n = 5
+p = 4
 _x = jnp.linspace(0, 1, 1000)
 T = jnp.concatenate([jnp.zeros(p),
                      jnp.linspace(0, 1, n-p+1),

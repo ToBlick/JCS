@@ -18,9 +18,11 @@ jax.config.update("jax_enable_x64", True)
 import quadax as quad
 import chex
 
-n = 32
+import matplotlib.pyplot as plt
+
+n = 6
 p = 3
-type = "clamped"
+type = "periodic"
 
 sp = jit(get_spline(n, p, type))
 def f(x):
@@ -45,3 +47,22 @@ _x = jnp.linspace(0, 1, nx)
 plt.plot(_x, f(_x) - vmap(f_h)(_x))
 # %%
 
+import time
+
+_M = jit(get_mass_matrix_lazy(sp, x_q_1d, w_q_1d, None))
+
+# %%
+t0 = time.time()
+for _ in range(10):
+    M = assemble(_M, jnp.arange(n), jnp.arange(n))
+    M[1,1]
+t1 = time.time()
+print("Assemble: ", (t1 - t0)/10)
+# %%
+t0 = time.time()
+for _ in range(100):
+    M = assemble_full_vmap(_M, jnp.arange(n), jnp.arange(n))
+    M[1,1]
+t1 = time.time()
+print("Assemble vmapped: ", (t1 - t0)/10)
+# %%
