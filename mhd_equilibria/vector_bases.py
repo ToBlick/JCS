@@ -67,98 +67,170 @@ def get_vector_basis_fn(bases, shape):
         return jax.lax.cond(I < shape[0] + shape[1], basis_fn_1, basis_fn_2, x, I)
     return basis_fn
 
-#TODO: Assuming for now Spline x Spline x Fourier
-def get_slab_zero_form_basis(ns, ps):
+def get_zero_form_basis(ns, ps, types):
     n_r, n_θ, n_ζ = ns
-    p_r, p_θ, _ = ps
-    Omega = ((0, 1), (0, 1), (0, 1))
-    basis_r = (get_spline(n_r, p_r, 'clamped'))
-    basis_θ = (get_spline(n_θ, p_θ, 'periodic'))
-    basis_ζ = (get_trig_fn(n_ζ, *Omega[2]))
+    p_r, p_θ, p_ζ = ps
     
-    basis_dr = (get_spline(n_r - 1, p_r - 1, 'clamped'))
-    basis_dθ = (get_spline(n_θ - 1, p_θ - 1, 'periodic')) 
-    basis_dζ = basis_ζ
+    Omega = ((0, 1), (0, 1), (0, 1))
+    
+    if types[0] == 'fourier':
+        basis_r = get_trig_fn(n_r, *Omega[0])
+        basis_dr = basis_r
+    else:
+        basis_r = (get_spline(n_r, p_r, types[0]))
+        basis_dr = (get_spline(n_r - 1, p_r - 1, types[0]))
+    
+    if types[1] == 'fourier':
+        basis_θ = get_trig_fn(n_θ, *Omega[1])
+        basis_dθ = basis_θ
+    else:
+        basis_θ = (get_spline(n_θ, p_θ, types[1]))
+        basis_dθ = (get_spline(n_θ - 1, p_θ - p_θ, types[1]))
+        
+    if types[2] == 'fourier':
+        basis_ζ = get_trig_fn(n_ζ, *Omega[2])
+        basis_dζ = basis_ζ
+    else:
+        basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
+        basis_dζ = (get_spline(n_ζ - 1, p_ζ - p_ζ, types[2]))
+        
+    shape0 = jnp.array([n_r, n_θ, n_ζ])
     
     basis0 = get_tensor_basis_fn(
                     (basis_r, basis_θ, basis_ζ), 
-                    (n_r, n_θ, n_ζ))
-    N0 = n_r * n_θ * n_ζ
-    
-    return basis0, N0
+                    shape0)
+    N0 = jnp.prod(shape0)
+    return basis0, shape0, N0
 
-def get_slab_one_form_basis(ns, ps):
+def get_one_form_basis(ns, ps, types):
     n_r, n_θ, n_ζ = ns
-    p_r, p_θ, _ = ps
+    p_r, p_θ, p_ζ = ps
+    
     Omega = ((0, 1), (0, 1), (0, 1))
-    basis_r = (get_spline(n_r, p_r, 'clamped'))
-    basis_θ = (get_spline(n_θ, p_θ, 'periodic'))
-    basis_ζ = (get_trig_fn(n_ζ, *Omega[2]))
     
-    basis_dr = (get_spline(n_r - 1, p_r - 1, 'clamped'))
-    basis_dθ = (get_spline(n_θ - 1, p_θ - 1, 'periodic')) 
-    basis_dζ = basis_ζ
+    if types[0] == 'fourier':
+        basis_r = get_trig_fn(n_r, *Omega[0])
+        basis_dr = basis_r
+        n_dr = n_r
+    else:
+        basis_r = (get_spline(n_r, p_r, types[0]))
+        basis_dr = (get_spline(n_r - 1, p_r - 1, types[0]))
+        n_dr = n_r - 1
     
-    basis1_1 = get_tensor_basis_fn(
-                    (basis_dr, basis_θ, basis_ζ), 
-                    (n_r - 1, n_θ, n_ζ))
-    N1_1 = (n_r - 1) * n_θ * n_ζ
-    basis1_2 = get_tensor_basis_fn(
-                (basis_r, basis_dθ, basis_ζ), 
-                (n_r, n_θ - 1, n_ζ))
-    N1_2 = n_r * (n_θ - 1) * n_ζ
-    basis1_3 = get_tensor_basis_fn(
-                (basis_r, basis_θ, basis_dζ), 
-                (n_r, n_θ, n_ζ))
-    N1_3 = n_r * n_θ * n_ζ
-    basis1 = get_vector_basis_fn(
-                (basis1_1, basis1_2, basis1_3), 
-                (N1_1, N1_2, N1_3))
-    N1 = N1_1 + N1_2 + N1_3
-    return basis1, N1
+    if types[1] == 'fourier':
+        basis_θ = get_trig_fn(n_θ, *Omega[1])
+        basis_dθ = basis_θ
+        n_dθ = n_θ
+    else:
+        basis_θ = (get_spline(n_θ, p_θ, types[1]))
+        basis_dθ = (get_spline(n_θ - 1, p_θ - p_θ, types[1]))
+        n_dθ = n_θ - 1
+        
+    if types[2] == 'fourier':
+        basis_ζ = get_trig_fn(n_ζ, *Omega[2])
+        basis_dζ = basis_ζ
+        n_dζ = n_ζ
+    else:
+        basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
+        basis_dζ = (get_spline(n_ζ - 1, p_ζ - p_ζ, types[2]))
+        n_dζ = n_ζ - 1
+        
+    shapes1 = jnp.array([ [n_dr, n_θ, n_ζ],
+                          [n_r, n_dθ, n_ζ],
+                          [n_r, n_θ, n_dζ] ])
+        
+    basis1_1 = get_tensor_basis_fn( (basis_dr, basis_θ, basis_ζ), shapes1[0])
+    basis1_2 = get_tensor_basis_fn( (basis_r, basis_dθ, basis_ζ), shapes1[1])
+    basis1_3 = get_tensor_basis_fn( (basis_r, basis_θ, basis_dζ), shapes1[2])
+    
+    basis1 = get_vector_basis_fn( (basis1_1, basis1_2, basis1_3), jnp.prod(shapes1, axis=0))
 
-def get_slab_two_form_basis(ns, ps):
-    n_r, n_θ, n_ζ = ns
-    p_r, p_θ, _ = ps
-    Omega = ((0, 1), (0, 1), (0, 1))
-    basis_r = (get_spline(n_r, p_r, 'clamped'))
-    basis_θ = (get_spline(n_θ, p_θ, 'periodic'))
-    basis_ζ = (get_trig_fn(n_ζ, *Omega[2]))
-    
-    basis_dr = (get_spline(n_r - 1, p_r - 1, 'clamped'))
-    basis_dθ = (get_spline(n_θ - 1, p_θ - 1, 'periodic')) 
-    basis_dζ = basis_ζ
-    basis2_1 = get_tensor_basis_fn((basis_r, basis_dθ, basis_dζ), 
-                                    (n_r, n_θ-1, n_ζ))
-    N2_1 = (n_r) * (n_θ - 1) * n_ζ
-    basis2_2 = get_tensor_basis_fn(
-                (basis_dr, basis_θ, basis_dζ), 
-                (n_r-1, n_θ, n_ζ))
-    N2_2 = (n_r - 1) * (n_θ) * n_ζ
-    basis2_3 = get_tensor_basis_fn(
-                (basis_dr, basis_dθ, basis_ζ), 
-                (n_r-1, n_θ-1, n_ζ))
-    N2_3 = (n_r - 1) * (n_θ - 1) * n_ζ
-    basis2 = get_vector_basis_fn(
-                (basis2_1, basis2_2, basis2_3), 
-                (N2_1, N2_2, N2_3))
-    N2 = N2_1 + N2_2 + N2_3
-    return basis2, N2
+    N1 = jnp.sum(jnp.prod(shapes1, axis=0))
+    return basis1, shapes1, N1
 
-def get_slab_three_form_basis(ns, ps):
+def get_two_form_basis(ns, ps, types):
     n_r, n_θ, n_ζ = ns
-    p_r, p_θ, _ = ps
+    p_r, p_θ, p_ζ = ps
+    
     Omega = ((0, 1), (0, 1), (0, 1))
-    basis_r = (get_spline(n_r, p_r, 'clamped'))
-    basis_θ = (get_spline(n_θ, p_θ, 'periodic'))
-    basis_ζ = (get_trig_fn(n_ζ, *Omega[2]))
     
-    basis_dr = (get_spline(n_r - 1, p_r - 1, 'clamped'))
-    basis_dθ = (get_spline(n_θ - 1, p_θ - 1, 'periodic')) 
-    basis_dζ = basis_ζ
+    if types[0] == 'fourier':
+        basis_r = get_trig_fn(n_r, *Omega[0])
+        basis_dr = basis_r
+        n_dr = n_r
+    else:
+        basis_r = (get_spline(n_r, p_r, types[0]))
+        basis_dr = (get_spline(n_r - 1, p_r - 1, types[0]))
+        n_dr = n_r - 1
     
-    basis3 = get_tensor_basis_fn(
+    if types[1] == 'fourier':
+        basis_θ = get_trig_fn(n_θ, *Omega[1])
+        basis_dθ = basis_θ
+        n_dθ = n_θ
+    else:
+        basis_θ = (get_spline(n_θ, p_θ, types[1]))
+        basis_dθ = (get_spline(n_θ - 1, p_θ - p_θ, types[1]))
+        n_dθ = n_θ - 1
+        
+    if types[2] == 'fourier':
+        basis_ζ = get_trig_fn(n_ζ, *Omega[2])
+        basis_dζ = basis_ζ
+        n_dζ = n_ζ
+    else:
+        basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
+        basis_dζ = (get_spline(n_ζ - 1, p_ζ - p_ζ, types[2]))
+        n_dζ = n_ζ - 1
+        
+    shapes = jnp.array([ [n_r, n_dθ, n_dζ],
+                         [n_dr, n_θ, n_dζ],
+                         [n_dr, n_dθ, n_ζ] ])
+        
+    basis_1 = get_tensor_basis_fn( (basis_r, basis_dθ, basis_dζ), shapes[0])
+    basis_2 = get_tensor_basis_fn( (basis_dr, basis_θ, basis_dζ), shapes[1])
+    basis_3 = get_tensor_basis_fn( (basis_dr, basis_dθ, basis_ζ), shapes[2])
+    
+    basis = get_vector_basis_fn( (basis_1, basis_2, basis_3), jnp.prod(shapes, axis=0))
+
+    N = jnp.sum(jnp.prod(shapes, axis=0))
+    return basis, shapes, N
+
+def get_three_form_basis(ns, ps, types):
+    n_r, n_θ, n_ζ = ns
+    p_r, p_θ, p_ζ = ps
+    
+    Omega = ((0, 1), (0, 1), (0, 1))
+    
+    if types[0] == 'fourier':
+        basis_r = get_trig_fn(n_r, *Omega[0])
+        basis_dr = basis_r
+        n_dr = n_r
+    else:
+        basis_r = (get_spline(n_r, p_r, types[0]))
+        basis_dr = (get_spline(n_r - 1, p_r - 1, types[0]))
+        n_dr = n_r - 1
+    
+    if types[1] == 'fourier':
+        basis_θ = get_trig_fn(n_θ, *Omega[1])
+        basis_dθ = basis_θ
+        n_dθ = n_θ
+    else:
+        basis_θ = (get_spline(n_θ, p_θ, types[1]))
+        basis_dθ = (get_spline(n_θ - 1, p_θ - p_θ, types[1]))
+        n_dθ = n_θ - 1
+        
+    if types[2] == 'fourier':
+        basis_ζ = get_trig_fn(n_ζ, *Omega[2])
+        basis_dζ = basis_ζ
+        n_dζ = n_ζ
+    else:
+        basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
+        basis_dζ = (get_spline(n_ζ - 1, p_ζ - p_ζ, types[2]))
+        n_dζ = n_ζ - 1
+
+    shape = jnp.array([n_dr, n_dθ, n_dζ])
+    
+    basis = get_tensor_basis_fn(
                     (basis_dr, basis_dθ, basis_dζ), 
-                    (n_r - 1, n_θ - 1, n_ζ))
-    N3 = (n_r - 1) * (n_θ - 1) * n_ζ
-    return basis3, N3
+                    shape)
+    N = jnp.prod(shape)
+    return basis, shape, N
