@@ -132,7 +132,7 @@ def get_2_form_trace_lazy(basis_fn, x_q, w_q, F):
 def assemble_full_vmap(M_lazy, ns, ms):
     return vmap(vmap(M_lazy, (None, 0)), (0, None))(ns, ms)
 
-@partial(jit, static_argnums=(0,))
+# @partial(jit, static_argnums=(0,))
 def assemble(f, ns, ms):
     def scan_fn(carry, j):
         row = jax.vmap(f, (None, 0))(j, ms)
@@ -155,10 +155,11 @@ def sparse_assemble_row_3d(I, _M, shape, p):
     row = vmap(_M, (0, None))(indices, I)
     return jnp.zeros(N).at[indices].set(row)
 
-@partial(jit, static_argnums=(0,1,2))
+# @partial(jit, static_argnums=(0,2))
 def sparse_assemble_3d(_M, shape, p):
     N = shape[0] * shape[1] * shape[2]
-    return vmap(sparse_assemble_row_3d, (0, None, None, None))(jnp.arange(N), _M, shape, p)
+    # return vmap(sparse_assemble_row_3d, (0, None, None, None))(jnp.arange(N), _M, shape, p)
+    return jnp.array([sparse_assemble_row_3d(i, _M, shape, p) for i in jnp.arange(N)])
 
 def sparse_assemble_row_3d_vec(I, _M, shapes, p):
     d, i, j, k = unravel_vector_index(I, shapes)
@@ -177,11 +178,12 @@ def sparse_assemble_row_3d_vec(I, _M, shapes, p):
     row = vmap(_M, (0, None))(indices, I)
     return jnp.zeros(N).at[indices].set(row)
 
-@partial(jit, static_argnums=(0,1,2))
+# @partial(jit, static_argnums=(0,2))
 def sparse_assemble_3d_vec(_M, shapes, p):
     shape_1, shape_2, shape_3 = shapes
     N1 = shape_1[0] * shape_1[1] * shape_1[2]
     N2 = shape_2[0] * shape_2[1] * shape_2[2]
     N3 = shape_3[0] * shape_3[1] * shape_3[2]
     N = N1 + N2 + N3
-    return vmap(sparse_assemble_row_3d_vec, (0, None, None, None))(jnp.arange(N), _M, shapes, p)
+    # return vmap(sparse_assemble_row_3d_vec, (0, None, None, None))(jnp.arange(N), _M, shapes, p)
+    return jnp.array([sparse_assemble_row_3d_vec(i, _M, shapes, p) for i in jnp.arange(N) ])

@@ -26,7 +26,6 @@ def F_inv(x):
 
 # %%
 
-# Zero-forms
 ns = (6, 7, 3)
 ps = (3, 3, 0)
 types = ('clamped', 'periodic', 'fourier')
@@ -36,7 +35,7 @@ basis1, shapes1, N1 = get_one_form_basis( ns, ps, types)
 x_q, w_q = quadrature_grid(
             get_quadrature_composite(jnp.linspace(0, 1, 5 - 2 + 1), 15),
             get_quadrature_composite(jnp.linspace(0, 1, 5 - 2 + 1), 15),
-            get_quadrature_composite(jnp.linspace(0, 1, 5 - 2 + 1), 15))
+            get_quadrature_periodic(16)(0,1))
 
 # %%
 # Mass matrices

@@ -67,7 +67,7 @@ def get_vector_basis_fn(bases, shape):
         return jax.lax.cond(I < shape[0] + shape[1], basis_fn_1, basis_fn_2, x, I)
     return basis_fn
 
-def get_zero_form_basis(ns, ps, types):
+def get_zero_form_basis(ns, ps, types, boundary):
     n_r, n_θ, n_ζ = ns
     p_r, p_θ, p_ζ = ps
     
@@ -75,24 +75,36 @@ def get_zero_form_basis(ns, ps, types):
     
     if types[0] == 'fourier':
         basis_r = get_trig_fn(n_r, *Omega[0])
-        basis_dr = basis_r
     else:
-        basis_r = (get_spline(n_r, p_r, types[0]))
-        basis_dr = (get_spline(n_r - 1, p_r - 1, types[0]))
+        if (boundary[0] == 'dirichlet'):
+            _basis_r = get_spline(n_r, p_r, types[0])
+            def basis_r(x, i):
+                return _basis_r(x, i+1)
+            n_r = n_r - 2
+        else:
+            basis_r = get_spline(n_r, p_r, types[0])
     
     if types[1] == 'fourier':
         basis_θ = get_trig_fn(n_θ, *Omega[1])
-        basis_dθ = basis_θ
     else:
-        basis_θ = (get_spline(n_θ, p_θ, types[1]))
-        basis_dθ = (get_spline(n_θ - 1, p_θ - p_θ, types[1]))
+        if (boundary[1] == 'dirichlet'):
+            _basis_θ = (get_spline(n_θ, p_θ, types[1]))
+            def basis_θ(x, i):
+                return _basis_θ(x, i+1)
+            n_θ = n_θ - 2
+        else:
+            basis_θ = (get_spline(n_θ, p_θ, types[1]))
         
     if types[2] == 'fourier':
         basis_ζ = get_trig_fn(n_ζ, *Omega[2])
-        basis_dζ = basis_ζ
     else:
-        basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
-        basis_dζ = (get_spline(n_ζ - 1, p_ζ - p_ζ, types[2]))
+        if (boundary[1] == 'dirichlet'):
+            _basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
+            def basis_ζ(x, i):
+                return _basis_ζ(x, i+1)
+            n_ζ = n_ζ - 2
+        else:
+            basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
         
     shape0 = jnp.array([n_r, n_θ, n_ζ])
     
@@ -102,7 +114,7 @@ def get_zero_form_basis(ns, ps, types):
     N0 = jnp.prod(shape0)
     return basis0, shape0, N0
 
-def get_one_form_basis(ns, ps, types):
+def get_one_form_basis(ns, ps, types, boundary):
     n_r, n_θ, n_ζ = ns
     p_r, p_θ, p_ζ = ps
     
@@ -113,7 +125,13 @@ def get_one_form_basis(ns, ps, types):
         basis_dr = basis_r
         n_dr = n_r
     else:
-        basis_r = (get_spline(n_r, p_r, types[0]))
+        if (boundary[0] == 'dirichlet'):
+            _basis_r = get_spline(n_r, p_r, types[0])
+            def basis_r(x, i):
+                return _basis_r(x, i+1)
+            n_r = n_r - 2
+        else:
+            basis_r = get_spline(n_r, p_r, types[0])
         basis_dr = (get_spline(n_r - 1, p_r - 1, types[0]))
         n_dr = n_r - 1
     
@@ -122,8 +140,14 @@ def get_one_form_basis(ns, ps, types):
         basis_dθ = basis_θ
         n_dθ = n_θ
     else:
-        basis_θ = (get_spline(n_θ, p_θ, types[1]))
-        basis_dθ = (get_spline(n_θ - 1, p_θ - p_θ, types[1]))
+        if (boundary[1] == 'dirichlet'):
+            _basis_θ = (get_spline(n_θ, p_θ, types[1]))
+            def basis_θ(x, i):
+                return _basis_θ(x, i+1)
+            n_θ = n_θ - 2
+        else:
+            basis_θ = (get_spline(n_θ, p_θ, types[1]))
+        basis_dθ = (get_spline(n_θ - 1, p_θ - 1, types[1]))
         n_dθ = n_θ - 1
         
     if types[2] == 'fourier':
@@ -131,8 +155,14 @@ def get_one_form_basis(ns, ps, types):
         basis_dζ = basis_ζ
         n_dζ = n_ζ
     else:
-        basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
-        basis_dζ = (get_spline(n_ζ - 1, p_ζ - p_ζ, types[2]))
+        if (boundary[1] == 'dirichlet'):
+            _basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
+            def basis_ζ(x, i):
+                return _basis_ζ(x, i+1)
+            n_ζ = n_ζ - 2
+        else:
+            basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
+        basis_dζ = (get_spline(n_ζ - 1, p_ζ - 1, types[2]))
         n_dζ = n_ζ - 1
         
     shapes1 = jnp.array([ [n_dr, n_θ, n_ζ],
@@ -143,12 +173,12 @@ def get_one_form_basis(ns, ps, types):
     basis1_2 = get_tensor_basis_fn( (basis_r, basis_dθ, basis_ζ), shapes1[1])
     basis1_3 = get_tensor_basis_fn( (basis_r, basis_θ, basis_dζ), shapes1[2])
     
-    basis1 = get_vector_basis_fn( (basis1_1, basis1_2, basis1_3), jnp.prod(shapes1, axis=0))
+    basis1 = get_vector_basis_fn( (basis1_1, basis1_2, basis1_3), jnp.prod(shapes1, axis=1))
 
-    N1 = jnp.sum(jnp.prod(shapes1, axis=0))
+    N1 = jnp.sum(jnp.prod(shapes1, axis=1))
     return basis1, shapes1, N1
 
-def get_two_form_basis(ns, ps, types):
+def get_two_form_basis(ns, ps, types, boundary):
     n_r, n_θ, n_ζ = ns
     p_r, p_θ, p_ζ = ps
     
@@ -159,7 +189,13 @@ def get_two_form_basis(ns, ps, types):
         basis_dr = basis_r
         n_dr = n_r
     else:
-        basis_r = (get_spline(n_r, p_r, types[0]))
+        if (boundary[0] == 'dirichlet'):
+            _basis_r = get_spline(n_r, p_r, types[0])
+            def basis_r(x, i):
+                return _basis_r(x, i+1)
+            n_r = n_r - 2
+        else:
+            basis_r = get_spline(n_r, p_r, types[0])
         basis_dr = (get_spline(n_r - 1, p_r - 1, types[0]))
         n_dr = n_r - 1
     
@@ -168,8 +204,14 @@ def get_two_form_basis(ns, ps, types):
         basis_dθ = basis_θ
         n_dθ = n_θ
     else:
-        basis_θ = (get_spline(n_θ, p_θ, types[1]))
-        basis_dθ = (get_spline(n_θ - 1, p_θ - p_θ, types[1]))
+        if (boundary[1] == 'dirichlet'):
+            _basis_θ = (get_spline(n_θ, p_θ, types[1]))
+            def basis_θ(x, i):
+                return _basis_θ(x, i+1)
+            n_θ = n_θ - 2
+        else:
+            basis_θ = (get_spline(n_θ, p_θ, types[1]))
+        basis_dθ = (get_spline(n_θ - 1, p_θ - 1, types[1]))
         n_dθ = n_θ - 1
         
     if types[2] == 'fourier':
@@ -177,8 +219,14 @@ def get_two_form_basis(ns, ps, types):
         basis_dζ = basis_ζ
         n_dζ = n_ζ
     else:
-        basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
-        basis_dζ = (get_spline(n_ζ - 1, p_ζ - p_ζ, types[2]))
+        if (boundary[1] == 'dirichlet'):
+            _basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
+            def basis_ζ(x, i):
+                return _basis_ζ(x, i+1)
+            n_ζ = n_ζ - 2
+        else:
+            basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
+        basis_dζ = (get_spline(n_ζ - 1, p_ζ - 1, types[2]))
         n_dζ = n_ζ - 1
         
     shapes = jnp.array([ [n_r, n_dθ, n_dζ],
@@ -189,12 +237,12 @@ def get_two_form_basis(ns, ps, types):
     basis_2 = get_tensor_basis_fn( (basis_dr, basis_θ, basis_dζ), shapes[1])
     basis_3 = get_tensor_basis_fn( (basis_dr, basis_dθ, basis_ζ), shapes[2])
     
-    basis = get_vector_basis_fn( (basis_1, basis_2, basis_3), jnp.prod(shapes, axis=0))
+    basis = get_vector_basis_fn( (basis_1, basis_2, basis_3), jnp.prod(shapes, axis=1))
 
-    N = jnp.sum(jnp.prod(shapes, axis=0))
+    N = jnp.sum(jnp.prod(shapes, axis=1))
     return basis, shapes, N
 
-def get_three_form_basis(ns, ps, types):
+def get_three_form_basis(ns, ps, types, boundary):
     n_r, n_θ, n_ζ = ns
     p_r, p_θ, p_ζ = ps
     
@@ -215,7 +263,7 @@ def get_three_form_basis(ns, ps, types):
         n_dθ = n_θ
     else:
         basis_θ = (get_spline(n_θ, p_θ, types[1]))
-        basis_dθ = (get_spline(n_θ - 1, p_θ - p_θ, types[1]))
+        basis_dθ = (get_spline(n_θ - 1, p_θ - 1, types[1]))
         n_dθ = n_θ - 1
         
     if types[2] == 'fourier':
@@ -224,7 +272,7 @@ def get_three_form_basis(ns, ps, types):
         n_dζ = n_ζ
     else:
         basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
-        basis_dζ = (get_spline(n_ζ - 1, p_ζ - p_ζ, types[2]))
+        basis_dζ = (get_spline(n_ζ - 1, p_ζ - 1, types[2]))
         n_dζ = n_ζ - 1
 
     shape = jnp.array([n_dr, n_dθ, n_dζ])

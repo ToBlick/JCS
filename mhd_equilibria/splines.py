@@ -4,6 +4,7 @@ from jax import numpy as jnp
 from functools import partial
 
 # TODO: Splines right now only work on [0, 1]
+# TODO: NaN bug when differentiating splines of order 4 or higher
 
 def indicator(x, i, T, p, n, m):
     return jnp.where(jnp.logical_and(T[i] <= x, x < T[i+1]), 
