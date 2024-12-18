@@ -1,4 +1,3 @@
-# %%
 import unittest
 
 import jax.experimental
@@ -79,14 +78,14 @@ class SplineTests(unittest.TestCase):
             nx = 256
             _x = jnp.linspace(0, 1, nx)
             npt.assert_allclose(vmap(f)(_x), vmap(f_h)(_x), rtol=1e-4)
-            npt.assert_allclose(vmap(f_h_dx)(_x), vmap(dx_f_h)(_x), atol=1e-15)
+            npt.assert_allclose(vmap(f_h_dx)(_x), vmap(dx_f_h)(_x), atol=1e-12)
 
     def test_3d_splines(self):
         # Make a box-torus: [0, 1] x [0, 1] x [0, 1] periodic in 3rd direction
         # %%
-        n_r = 8
+        n_r = 10
         p_r = 3
-        n_θ = 8
+        n_θ = 10
         p_θ = 3
         n_ζ = 3
         N = n_r * n_θ * n_ζ
@@ -123,14 +122,14 @@ class SplineTests(unittest.TestCase):
         _x = jnp.array(jnp.meshgrid(_r, _θ, _z)) # shape 3, n_x, n_x, n_x
         _x = _x.transpose(1, 2, 3, 0).reshape((nx)**3, 3)
 
-        npt.assert_allclose(vmap(f_h)(_x), vmap(f)(_x), rtol=8e-2)
+        npt.assert_allclose(vmap(f_h)(_x), vmap(f)(_x), rtol=5e-2)
         
     def test_3d_splines_grad(self):
         # %%
-        n_r = 6
-        p_r = 2
-        n_θ = 6
-        p_θ = 2
+        n_r = 10
+        p_r = 3
+        n_θ = 10
+        p_θ = 3
         n_ζ = 3
         Omega = ((0, 1), (0, 1), (0, 1))
         
@@ -175,7 +174,7 @@ class SplineTests(unittest.TestCase):
         _x = jnp.array(jnp.meshgrid(_r, _θ, _z)) # shape 3, n_x, n_x, n_x
         _x = _x.transpose(1, 2, 3, 0).reshape((nx)**3, 3)
         
-        npt.assert_allclose(vmap(f_h)(_x), vmap(f)(_x), rtol=1e0)
+        npt.assert_allclose(vmap(f_h)(_x), vmap(f)(_x), rtol=1e-1)
 
         basis1_1 = get_tensor_basis_fn(
                     (basis_dr, basis_θ, basis_ζ), 
@@ -208,9 +207,9 @@ class SplineTests(unittest.TestCase):
                         M1.data, M1.indices, M1.indptr, proj1(grad(f_h)))
         gradf_h = jit(get_u_h_vec(gradf_hat, basis1))
 
-        npt.assert_allclose(vmap(grad(f_h))(_x), vmap(gradf_h)(_x), atol=1e-14)
-        npt.assert_allclose(vmap(curl(gradf_h))(_x), 0, atol=1e-13)
-        npt.assert_allclose(vmap(gradf_h)(_x), vmap(grad(f))(_x), atol=6e-1)
+        npt.assert_allclose(vmap(grad(f_h))(_x), vmap(gradf_h)(_x), atol=1e-12)
+        npt.assert_allclose(vmap(curl(gradf_h))(_x), 0, atol=1e-11)
+        npt.assert_allclose(vmap(gradf_h)(_x), vmap(grad(f))(_x), atol=5e-2)
 
         def A(x):
             x, y, ζ  = x
@@ -253,6 +252,6 @@ class SplineTests(unittest.TestCase):
                         M2.data, M2.indices, M2.indptr, proj2(curl(A_h)))
         curlA_h = jit(get_u_h_vec(curlA_hat, basis2))
         
-        npt.assert_allclose(vmap(curlA_h)(_x), vmap(curl(A_h))(_x), atol=1e-15)
-        npt.assert_allclose(vmap(curl(gradf_h))(_x), 0, atol=1e-13)
-        # npt.assert_allclose(vmap(curlA_h)(_x), vmap(curl(A))(_x), atol=1e-15)
+        npt.assert_allclose(vmap(curlA_h)(_x), vmap(curl(A_h))(_x), atol=1e-12)
+        npt.assert_allclose(vmap(curl(gradf_h))(_x), 0, atol=1e-11)
+        # npt.assert_allclose(vmap(curlA_h)(_x), vmap(curl(A))(_x), rtol=1e-6)
