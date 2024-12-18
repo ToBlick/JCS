@@ -81,7 +81,7 @@ class SplineTests(unittest.TestCase):
         # Make a box-torus: [0, 1] x [0, 1] x [0, 1] periodic in 3rd direction
         n_r = 8
         p_r = 3
-        n_θ = 8
+        n_θ = 10
         p_θ = 3
         n_ζ = 3
         
