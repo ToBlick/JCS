@@ -3,7 +3,6 @@ import jax
 from jax import jit
 import jax.numpy as jnp
 import jax.experimental.sparse
-
 from mhd_equilibria.bases import *
 from mhd_equilibria.forms import *
 from mhd_equilibria.quadratures import *
@@ -37,9 +36,9 @@ def energy(x):
 e_ref = pullback_3form(energy, F)
     
 # Bases
-n_r, p_r = 8, 3
-n_θ, p_θ = 8, 3
-n_ζ, p_ζ = 8, 3
+n_r, p_r = 8, 2
+n_θ, p_θ = 8, 2
+n_ζ, p_ζ = 8, 2
 
 Omega = ((0, 1), (0, 1), (0, 1))
         
@@ -51,7 +50,15 @@ basis_dr = jit(get_spline(n_r - 1, p_r - 1, 'clamped'))
 basis_dθ = jit(get_spline(n_θ - 1, p_θ - 1, 'clamped'))
 basis_dζ = jit(get_spline(n_ζ - 1, p_ζ - 1, 'clamped'))
 
+# %%
+for i in range(n_r):
+    plt.plot(vmap(basis_r, (0, None))(jnp.linspace(0, 1, 100), i))
+
+# %%
 x_q, w_q = quadrature_grid(
+            # get_quadrature_spectral(31)(0, 1),
+            # get_quadrature_spectral(31)(0, 1),
+            # get_quadrature_spectral(31)(0, 1))
             get_quadrature_composite(jnp.linspace(0, 1, n_r - p_r + 1), 15),
             get_quadrature_composite(jnp.linspace(0, 1, n_θ - p_θ + 1), 15),
             get_quadrature_composite(jnp.linspace(0, 1, n_ζ - p_ζ + 1), 15))
@@ -107,16 +114,51 @@ N3 = (n_r - 1) * (n_θ - 1) * (n_ζ - 1)
 # %%
 # Mass matrices
 _M0 = jit(get_mass_matrix_lazy_0(basis0, x_q, w_q, F))
-M0 = jax.experimental.sparse.bcsr_fromdense(assemble(_M0, N0, N0))
+import time
+start = time.time()
+M0 = assemble(_M0, jnp.arange(N0), jnp.arange(N0))
+M0[0,0]
+end = time.time()
+print(end - start)
+
+# %%
+start = time.time()
+M02 = sparse_assemble_3d(_M0, (n_r, n_θ, n_ζ), 3)
+M02[0,0]
+end = time.time()
+print(end - start)
+
+# print(jnp.linalg.norm(M0 - M02))
+
+# %%
+shapes_1forms = ( (n_r - 1, n_θ, n_ζ), 
+                  (n_r, n_θ - 1, n_ζ), 
+                  (n_r, n_θ, n_ζ - 1) )
+
 # %%
 _M1 = jit(get_mass_matrix_lazy_1(basis1, x_q, w_q, F))
-M1 = jax.experimental.sparse.bcsr_fromdense(assemble(_M1, N1, N1))
+M1_1 = assemble(_M1, jnp.arange(N1_1), jnp.arange(N1_1))
+M1_2 = assemble(_M1, jnp.arange(N1_1, N1_1+N1_2), jnp.arange(N1_1, N1_1+N1_2))
+M1_3 = assemble(_M1, jnp.arange(N1_1+N1_2, N1), jnp.arange(N1_1+N1_2, N1))
+# M1 = jax.experimental.sparse.bcsr_fromdense(jax.scipy.linalg.block_diag(M1_1, M1_2, M1_3))
+M1 = jnp.array(jax.scipy.linalg.block_diag(M1_1, M1_2, M1_3))
+
+# %%
+M1_smart_rowI = sparse_assemble_row_3d_vec(0, _M1, shapes_1forms, 3)
+
+# %%
+jnp.linalg.norm(M1[0] - M1_smart_rowI)
+# %%
+M1_smart = sparse_assemble_3d_vec(_M1, shapes_1forms, 3)
 # %%
 _M2 = jit(get_mass_matrix_lazy_2(basis2, x_q, w_q, F))
-M2 = jax.experimental.sparse.bcsr_fromdense(assemble(_M2, N2, N2))
+M2_1 = assemble(_M2, jnp.arange(N2_1), jnp.arange(N2_1))
+M2_2 = assemble(_M2, jnp.arange(N2_1, N2_1 + N2_2), jnp.arange(N2_1, N2_1 + N2_2))
+M2_3 = assemble(_M2, jnp.arange(N2_1 + N2_2, N2), jnp.arange(N2_1 + N2_2, N2))
+M2 = jax.experimental.sparse.bcsr_fromdense(jax.scipy.linalg.block_diag(M2_1, M2_2, M2_3))
 # %%
 _M3 = jit(get_mass_matrix_lazy_3(basis3, x_q, w_q, F))
-M3 = jax.experimental.sparse.bcsr_fromdense(assemble(_M3, N3, N3))
+M3 = get_sparse_operator(_M3, jnp.arange(N3), jnp.arange(N3))
 # %%
 # Projections
 proj0 = get_l2_projection(basis0, x_q, w_q, N0)

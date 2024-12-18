@@ -49,8 +49,8 @@ def spline(x, i, T, p, n, m, type):
 # %% 
 import jax.random
 key = jax.random.PRNGKey(0)
-n = 10
-p = 3
+n = 5
+p = 4
 _x = jnp.linspace(0, 1, 1000)
 T = jnp.concatenate([jnp.zeros(p),
                      jnp.linspace(0, 1, n-p+1),
@@ -134,8 +134,8 @@ plt.scatter(xs,ys, color='red')
 plt.plot(__x, vmap(f)(__x))
 plt.plot(__x, vmap(grad(f))(__x))
 plt.plot(__x, 2 * jnp.pi * jnp.cos(2 * jnp.pi * __x))
-# plt.plot(__x, g)
-# plt.plot(__x, jnp.gradient(g, __x))
+plt.plot(__x, g)
+plt.plot(__x, jnp.gradient(g, __x))
 
 # %%
 ### quadrature points
@@ -253,7 +253,7 @@ _z = jnp.array([0.0])
 x = jnp.array(jnp.meshgrid(_r, _θ, _z)) # shape 3, n_x, n_x, 1
 x = x.transpose(1, 2, 3, 0).reshape(1*(nx)**2, 3)
 # %%
-plt.contourf(_r, _θ, vmap(S_100, (0, None))(x, 4).reshape(nx, nx))
+plt.contourf(_r, _θ, vmap(S_100, (0, None))(x, 32).reshape(nx, nx))
 plt.xlabel('r')
 plt.ylabel('θ')
 plt.colorbar()

@@ -56,10 +56,10 @@ def knot_vector(n, p, type='open'):
 
 #TODO: Check the n -> n+p stuff in the periodic spline case
 def get_spline(n, p, type='clamped'):
-    T = knot_vector(n, p, type)
-    m = n - p + 1
     if type == 'periodic':
         n = n + p
+        m = n - p + 1
+        T = knot_vector(n, p, type)
         def _spline(x, i):
             i = i + p
             return jax.lax.cond(i > n - 2*p,
@@ -68,6 +68,8 @@ def get_spline(n, p, type='clamped'):
                 lambda _: spline(x, i, T, p, n, m, 'periodic'),
                 operand=None)
     elif type == 'clamped':
+        T = knot_vector(n, p, type)
+        m = n - p + 1
         def _spline(x, i):
             return spline(x, i, T, p, n, m, 'clamped')
     return _spline
