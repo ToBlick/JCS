@@ -1,6 +1,7 @@
 # %%
 import jax
 from jax import jit
+import jax.experimental
 import jax.numpy as jnp
 import jax.experimental.sparse
 from mhd_equilibria.bases import *
@@ -85,7 +86,11 @@ def u(x):
 ###
 
 L = G @ jnp.linalg.solve(M0, G.T)
+L = jnp.where(jnp.abs(L) > 1e-4, L, jnp.zeros_like(L))
+L_sp = jax.experimental.sparse.bcsr_fromdense(L)
 
+print(L_sp)
+# %%
 proj = get_l2_projection(basis1, x_q, w_q, N1)
 # f_hat = jnp.linalg.solve(M, proj(f))
 # f_h = get_u_h(f_hat, basis0)
@@ -98,6 +103,9 @@ def err(x):
 error = integral(err, x_q, w_q)
 # errors.append(error)
 print(f'n = {n}, p = {p}, error = {error}')
+
+# %%
+L_sp = jax.experimental.sparse.bcsr_fromdense(jnp.where(jnp.abs(L) > 1e-6, L, jnp.zeros_like(L)))
 
 # %%
 plt.plot(_x[:, 0], vmap(u_h)(_x), color='c', label='u_h', alpha = 0.5)

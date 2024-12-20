@@ -32,6 +32,7 @@ for n in _ns:
         ps = (p, 0, 0)
         types = ('clamped', 'fourier', 'fourier')
         boundary = ('dirichlet', 'periodic', 'periodic')
+        
         basis0, shape0, N0 = get_zero_form_basis(ns, ps, types, boundary)
         basis1, shapes1, N1 = get_one_form_basis(ns, ps, types, boundary)
 
@@ -46,7 +47,6 @@ for n in _ns:
         # _x3 = jnp.zeros(1)
         # _x = jnp.array(jnp.meshgrid(_x1, _x2, _x3))
         # _x = _x.transpose(1, 2, 3, 0).reshape((nx)*1*1, 3)
-
 
         def stiffness_matrix_lazy(i, j):
             return l2_product(lambda x: grad(basis0)(x, i), lambda x: grad(basis0)(x, j), x_q, w_q)

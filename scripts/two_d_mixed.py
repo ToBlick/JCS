@@ -8,24 +8,26 @@ from mhd_equilibria.bases import *
 from mhd_equilibria.forms import *
 from mhd_equilibria.quadratures import *
 from mhd_equilibria.splines import *
-from mhd_equilibria.operators import laplacian, div
-from mhd_equilibria.vector_bases import get_vector_basis_fn
+from mhd_equilibria.operators import div
 
 import matplotlib.pyplot as plt 
-jax.config.update("jax_enable_x64", True)
-import time
 
+### Enable double precision
+jax.config.update("jax_enable_x64", True)
+
+### This will print out the current backend (cpu/gpu)
 from jax.lib import xla_bridge
 print(xla_bridge.get_backend().platform)
 
 # %%
+
+# F maps the logical domain (unit cube) to the physical one
 def F(x):
     return x
 F_inv = F
 
-errors = []
-n = 16
-p = 1
+n = 20
+p = 3
 ns = (n, n, 1)
 ps = (p, p, 1)
 types = ('clamped', 'clamped', 'fourier')
@@ -40,11 +42,6 @@ x_q, w_q = quadrature_grid(
     get_quadrature_composite(jnp.linspace(0, 1, ns[1] - ps[1] + 1), 15),
     get_quadrature_periodic(1)(0,1))
 
-# x_q, w_q = quadrature_grid(
-#     get_quadrature_periodic(32)(0,1),
-#     get_quadrature_periodic(32)(0,1),
-#     get_quadrature_periodic(32)(0,1))
-
 nx = 32
 _x1 = jnp.linspace(0, 1, nx)
 _x2 = jnp.linspace(0, 1, nx)
@@ -52,26 +49,6 @@ _x3 = jnp.zeros(1)
 _x = jnp.array(jnp.meshgrid(_x1, _x2, _x3))
 _x = _x.transpose(1, 2, 3, 0).reshape(nx*nx*1, 3)
 
-# for i in range(N0):
-#     plt.plot(_x[:, 0], vmap(basis0, (0, None))(_x, i), color='black')
-# for i in range(N1):
-#     plt.plot(_x[:, 0], vmap(basis1, (0, None))(_x, i), color='c')
-# plt.show()
-
-# # %%
-# __i = 35
-# plt.contourf(_x1, _x2, (jnp.sqrt(jnp.sum(vmap(basis1, (0, None))(_x, __i)**2, axis=1))).reshape(nx, nx))
-# plt.quiver(_x1, _x2, vmap(basis1, (0, None))(_x, __i)[:,0].reshape(nx, nx), vmap(basis1, (0, None))(_x, __i)[:,1].reshape(nx, nx))
-
-# %%
-# __i = 4
-# plt.contourf(_x1, _x2, (jnp.sqrt(jnp.sum(vmap(basis2, (0, None))(_x, __i)**2, axis=1))).reshape(nx, nx))
-# plt.quiver(_x1, _x2, vmap(basis2, (0, None))(_x, __i)[:,0].reshape(nx, nx), vmap(basis2, (0, None))(_x, __i)[:,1].reshape(nx, nx))
-
-# # %%
-# plt.contourf(_x1, _x2, vmap(basis0, (0, None))(_x, 36).reshape(nx, nx))
-# # %%
-# plt.contourf(_x1, _x2, vmap(basis3, (0, None))(_x, 24).reshape(nx, nx))
 # %%
 def piecewise_assemble(f, ns, ms, split):
     n = len(ns)
@@ -141,7 +118,6 @@ def err(x):
     return jnp.sum((u_h(x) - u(x))**2)
 
 error = jnp.sqrt(integral(err, x_q, w_q))
-# errors.append(error)
 print(f'n = {n}, p = {p}, error = {error}')
 
 # %%
@@ -225,7 +201,7 @@ ax.set_xlabel('n')
 # plt.xlabel('n')
 # plt.ylabel('λ/ᴨ²')
 # %%
-_i = 0
+_i = 56
 phi_i = get_u_h(evecs[:, _i], basis3)
 plt.contourf(_x1, _x2, vmap(phi_i)(_x).reshape(nx, nx))
 plt.colorbar()

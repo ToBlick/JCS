@@ -171,9 +171,29 @@ def get_zernike_fn_radial_derivative(N, a, b, c, d):
 
 # converts a linear index i to a cartesian index (i,j)
 def _lin_to_cart(i, shape):
+    """
+    Convert a linear index to a Cartesian index.
+
+    Parameters:
+    i (int): The linear index to convert.
+    shape (tuple of int): The shape of the array to which the index applies.
+
+    Returns:
+    tuple of int: The Cartesian index corresponding to the linear index.
+    """
     return jnp.unravel_index(i, shape)
 
 def get_tensor_basis_fn(bases, shape):
+    """
+    Generates a tensor basis function from a list of basis functions and a given shape.
+
+    Args:
+        bases (list of callables): A list of basis functions, where each function takes two arguments (x, k) and returns a value.
+        shape (tuple of int): The shape of the tensor, used to convert linear indices to Cartesian coordinates.
+
+    Returns:
+        callable: A function that takes two arguments (x, k) and returns the product of the basis functions evaluated at the given coordinates.
+    """
     d = len(bases)
     # TODO: vmap?
     def basis_fn(x, k):

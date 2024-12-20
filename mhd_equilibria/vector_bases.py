@@ -13,10 +13,21 @@ from functools import partial
 #     return basis_fn
 
 def unravel_vector_index(I, shapes):
-    # I is a linear index that comprises three indices:
-    # First, it is a stacked linear index for all 3 components
-    # Second, it is a linear index for each component that unravels into i,j,k
-    # so we need to unravel I into (d,i,j,k).
+    """
+    Unravel a linear index into a tuple of indices for a 3D vector field.
+    This function takes a linear index `I` and a tuple of shapes `shapes` for 
+    three components of a 3D vector field. It returns a tuple `(d, i, j, k)` 
+    where `d` is the component index (0, 1, or 2) and `(i, j, k)` are the 
+    unravelled indices for that component.
+    Parameters:
+    I (int): The linear index to unravel.
+    shapes (tuple): A tuple of three shapes, each representing the shape of 
+                    one component of the 3D vector field. Each shape is a 
+                    tuple of three integers.
+    Returns:
+    tuple: A tuple `(d, i, j, k)` where `d` is the component index and 
+           `(i, j, k)` are the unravelled indices for that component.
+    """
     shape_1, shape_2, shape_3 = shapes
     N1 = shape_1[0] * shape_1[1] * shape_1[2]
     N2 = shape_2[0] * shape_2[1] * shape_2[2]
@@ -35,10 +46,19 @@ def unravel_vector_index(I, shapes):
     return jax.lax.cond(I < N1 + N2, dijk_if_I_1or2, dijk_if_I_3, None)
 
 def ravel_vector_index(dijk, shapes):
-    # I is a linear index that comprises three indices:
-    # First, it is a stacked linear index for all 3 components
-    # Second, it is a linear index for each component that unravels into i,j,k
-    # so we need to unravel I into (d,i,j,k).
+    """
+    Computes a raveled (flattened) index for a given vector component and its multi-dimensional index.
+    Parameters:
+    dijk (tuple): A tuple (d, i, j, k) where:
+        d (int): The vector component index (0, 1, or 2).
+        i (int): The index along the first dimension.
+        j (int): The index along the second dimension.
+        k (int): The index along the third dimension.
+    shapes (tuple): A tuple of three shapes (shape_1, shape_2, shape_3) where each shape is a tuple of three integers
+                    representing the dimensions of the respective component.
+    Returns:
+    int: The raveled index corresponding to the input multi-dimensional index and vector component.
+    """
     shape_1, shape_2, shape_3 = shapes
     N1 = shape_1[0] * shape_1[1] * shape_1[2]
     N2 = shape_2[0] * shape_2[1] * shape_2[2]
@@ -54,13 +74,24 @@ def ravel_vector_index(dijk, shapes):
     return jax.lax.cond(d == 2, I_if_d_is_two, I_if_d_is_zero_or_one, None)
 
 def get_vector_basis_fn(bases, shape):
+    """
+    Creates a vector basis function that returns a 3-dimensional vector with one of its components
+    set based on the provided basis functions and shape.
+    Args:
+        bases (tuple of callables): A list of three basis functions. Each basis function should take
+                                    two arguments (x, i) and return a scalar value.
+        shape (tuple of int): A tuple of three integers representing the shape of the basis functions.
+    Returns:
+        callable: A function that takes two arguments (x, I) and returns a 3-dimensional vector.
+                  The vector will have one of its components set based on the basis functions and
+                  the index I, while the other components will be zero.
+    """
     def basis_fn_0(x, i):
         return jnp.zeros(3).at[0].set(bases[0](x, i))
     def basis_fn_1(x, i):
         return jnp.zeros(3).at[1].set(bases[1](x, i - shape[0]))
     def basis_fn_2(x, i):
         return jnp.zeros(3).at[2].set(bases[2](x, i - shape[0] - shape[1]))
-    
     def basis_fn(x, I):
         return jax.lax.cond(I < shape[0], basis_fn_0, basis_fn_1_or_2, x, I)
     def basis_fn_1_or_2(x, I):
@@ -68,6 +99,19 @@ def get_vector_basis_fn(bases, shape):
     return basis_fn
 
 def get_zero_form_basis(ns, ps, types, boundary):
+    """
+    Generates a zero-form basis for a given set of parameters.
+    Parameters:
+    ns (tuple): A tuple of integers (n_r, n_θ, n_ζ) representing the number of basis functions in each dimension.
+    ps (tuple): A tuple of integers (p_r, p_θ, p_ζ) representing the polynomial degrees in each dimension.
+    types (tuple): A tuple of strings ('type_r', 'type_θ', 'type_ζ') indicating the type of basis functions ('fourier', 'clamped', 'periodic', ...).
+    boundary (tuple): A tuple of strings ('boundary_r', 'boundary_θ', 'boundary_ζ') indicating the boundary conditions ('dirichlet' or other). Only the 'dirichlet' boundary condition actually does something: It removes the first and last clamped spline from the basis.
+    Returns:
+    tuple: A tuple containing:
+        - basis0 (function): The tensor basis function.
+        - shape0 (jnp.array): An array representing the shape of the basis.
+        - N0 (int): The total number of basis functions.
+    """
     n_r, n_θ, n_ζ = ns
     p_r, p_θ, p_ζ = ps
     
@@ -115,6 +159,20 @@ def get_zero_form_basis(ns, ps, types, boundary):
     return basis0, shape0, N0
 
 def get_one_form_basis(ns, ps, types, boundary):
+    """
+    Generates a basis for one-forms given the specifications for the number of basis functions,
+    polynomial degrees, types of basis functions, and boundary conditions.
+    Parameters:
+    ns (tuple): A tuple (n_r, n_θ, n_ζ) specifying the number of basis functions in each dimension.
+    ps (tuple): A tuple (p_r, p_θ, p_ζ) specifying the polynomial degrees in each dimension.
+    types (tuple): A tuple (type_r, type_θ, type_ζ) specifying the type of basis functions ('fourier' or 'spline') in each dimension.
+    boundary (tuple): A tuple (boundary_r, boundary_θ, boundary_ζ) specifying the boundary conditions ('dirichlet' or other) in each dimension. Only the 'dirichlet' boundary condition actually does something: It removes the first and last clamped spline from the basis.
+    Returns:
+    tuple: A tuple containing:
+        - basis1: The generated basis function for one-forms. Takes two arguments (x, I) and returns a 3D vector.
+        - shapes1: A 2D array where each row represents the shape of the basis functions for a component of the one-form. If this is all splines, it will be ( (n_r-1, n_θ, n_ζ), (n_r, n_θ-1, n_ζ), (n_r, n_θ, n_ζ-1) ). This is different for Fourier bases: there is "reduction in size" for Fourier bases.
+        - N1: The total number of basis functions, for example (n_r-1) * n_θ * n_ζ + n_r * (n_θ-1) * n_ζ + n_r * n_θ * (n_ζ-1).
+    """
     n_r, n_θ, n_ζ = ns
     p_r, p_θ, p_ζ = ps
     
