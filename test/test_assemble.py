@@ -33,13 +33,12 @@ class AssemblyTests(unittest.TestCase):
             return (x + jnp.ones_like(x)*3) / 6
 
         # Bases
-        ns = (6, 7, 3)
-        ps = (3, 3, 0)
+        ns = (5, 3, 3)
+        ps = (3, 1, 0)
         types = ('clamped', 'periodic', 'fourier')
-        basis0, shape0, N0 = get_zero_form_basis( ns, ps, types)
-        basis1, shapes1, N1 = get_one_form_basis( ns, ps, types)
-        
-        print(N0, N1)
+        boundaries = ('none', 'none', 'none')
+        basis0, shape0, N0 = get_zero_form_basis( ns, ps, types, boundaries)
+        basis1, shapes1, N1 = get_one_form_basis( ns, ps, types, boundaries)
 
         x_q, w_q = quadrature_grid(
                     get_quadrature_composite(jnp.linspace(0, 1, ns[0] - ps[0] + 1), 15),
