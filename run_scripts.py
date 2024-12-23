@@ -31,3 +31,5 @@ def run_all_scripts(directory):
 # Specify the directory containing the scripts
 scripts_directory = "scripts/"
 run_all_scripts(scripts_directory)
+scripts_directory = "scripts/scripts_tutorials/"
+run_all_scripts(scripts_directory)

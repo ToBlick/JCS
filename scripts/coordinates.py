@@ -1,7 +1,8 @@
 # %%
-from jax import jacrev, jacfwd, hessian, vmap, jit, grad, config
+from jax import jacrev, jacfwd, hessian, vmap, jit, grad, config, value_and_grad
 import jax.numpy as jnp
 from functools import partial
+import optax
 
 import numpy as np
 
@@ -102,7 +103,6 @@ ax.plot(R0 + vmap(ς)(_θ[:, None]) * jnp.cos(_θ),
 ax.set_xlabel(r'$R$')
 ax.set_ylabel(r'$Z$')
 ax.set_aspect('equal')
-plt.show()
 # %%
 @jit
 def residual(ς_hat):
@@ -114,10 +114,6 @@ def residual(ς_hat):
         return f_sq(x)
     return jnp.mean(vmap(res)(_θ[:, None]))
 
-# %%
-import optax
-from jax import value_and_grad
-
 solver = optax.lbfgs(linesearch=optax.scale_by_backtracking_linesearch(
                         max_backtracking_steps=50,
                         store_grad=True
@@ -128,14 +124,15 @@ opt_state = solver.init(ς_hat)
 value_and_grad = optax.value_and_grad_from_state(residual)
 
 params = [ ς_hat ]
-# optimization loop 
+# optimization loop -- careful with "grad" name since this
+# refers to a jax function in this script, so called it grad0
 for _ in range(100):
-    value, grad = value_and_grad(ς_hat, state=opt_state)
-    if jnp.sum( grad**2 ) < 1e-16:
+    value, grad0 = value_and_grad(ς_hat, state=opt_state)
+    if jnp.sum( grad0**2 ) < 1e-16:
         break
     updates, opt_state = solver.update(
-        grad, opt_state, ς_hat, value=value, 
-        grad=grad, value_fn=residual
+        grad0, opt_state, ς_hat, value=value, 
+        grad=grad0, value_fn=residual
     )
     ς_hat = optax.apply_updates(ς_hat, updates)
     params.append( ς_hat )
@@ -143,7 +140,6 @@ for _ in range(100):
 
 # %%
 cmap = plt.get_cmap("inferno")
-
 Omega = ((0.2, 1), (0, 2*jnp.pi), (0, 2*jnp.pi))
 
 _r = jnp.linspace(*Omega[0], nx)[1:]
@@ -159,19 +155,16 @@ for (i, p) in enumerate(params):
 ax.set_xlabel(r'$R$')
 ax.set_ylabel(r'$Z$')
 ax.set_aspect('equal')
-plt.show()
 
 # %%
+plt.figure()
 for (i, p) in enumerate(params):
     ς = get_u_h(p, basis_fn)
     plt.plot(_θ, vmap(ς)(_θ[:, None]), color = cmap(i/len(params)))
 plt.xlabel(r'$\theta$')
 plt.ylabel(r'$\varsigma(\theta)$')
-plt.show()
-
 
 # %%
-
 def F(x):
     r, θ, z = x
     θ = jnp.array([θ])
@@ -237,10 +230,8 @@ plt.colorbar()
 plt.xlabel('R')
 plt.ylabel('Z')
 plt.axis('equal')
-plt.show()
 
 # %%
-
 grad_f_hat = grad(f_hat_3d)
 grad_f = pullback_1form(grad_f_hat, F_inv)
 grad_f_vals = vmap(grad_f)(x)
@@ -263,7 +254,6 @@ plt.colorbar()
 plt.xlabel('R')
 plt.ylabel('Z')
 plt.axis('equal')
-plt.show()
 # %%
 n_r, n_θ, n_φ = 28, 1, 1
 N = n_r * n_θ * n_φ
@@ -295,7 +285,6 @@ plt.colorbar()
 plt.xlabel('R')
 plt.ylabel('Z')
 plt.axis('equal')
-plt.show()
 
 # %%
 M0 = get_mass_matrix_lazy_0(basis_fn_0forms, x_q, w_q, F)
@@ -304,6 +293,7 @@ M0 = jnp.where(jnp.abs(M0_assembled) > 1e-16, M0_assembled, 0.0)
 print(jnp.linalg.cond(M0_assembled))
 print(jnp.sum(M0_assembled > 1e-16), jnp.sum(M0_assembled > 1e-16)/N, 100 *jnp.sum(M0_assembled > 1e-16) / N**2)
 # %%
+plt.figure()
 plt.imshow(M0_assembled)
 plt.colorbar()
 
@@ -336,7 +326,6 @@ plt.colorbar()
 plt.xlabel('R')
 plt.ylabel('Z')
 plt.axis('equal')
-plt.show()
 # %%
 M1_ref = get_mass_matrix_lazy(basis_fn_1forms, x_q, w_q, F)
 M1_ref_assembled = vmap(vmap(M1_ref, (0, None)), (None, 0))(jnp.arange(N1), jnp.arange(N1))
@@ -354,9 +343,11 @@ print(jnp.linalg.cond(M1_assembled[:ns_1forms[0],:ns_1forms[0]]),
       jnp.linalg.cond(M1_assembled[ns_1forms[0]+ns_1forms[1]:,ns_1forms[0]+ns_1forms[1]:]))
 print(jnp.sum(M1_assembled > 1e-16), jnp.sum(M1_assembled > 1e-16)/N1, 100 * jnp.sum(M1_assembled > 1e-16) / N1**2)
 # %%
+plt.figure()
 plt.imshow(M1_assembled[:ns_1forms[0],:ns_1forms[0]])
 plt.colorbar()
 # %%
+plt.figure()
 plt.imshow(M1_assembled[ns_1forms[0]:ns_1forms[0]+ns_1forms[1],ns_1forms[0]:ns_1forms[0]+ns_1forms[1]])
 plt.colorbar()
 # %%
@@ -395,7 +386,6 @@ plt.colorbar()
 plt.xlabel('R')
 plt.ylabel('Z')
 plt.axis('equal')
-plt.show()
 # %%
 def error_1forms(u, v, F):
     @jit
@@ -481,7 +471,6 @@ plt.xlabel('R')
 plt.ylabel('Z')
 plt.legend()
 plt.axis('equal')
-plt.show()
 
 # %%
 J_ref_dofs = jnp.linalg.solve(M1_assembled, C_assembled @ H_ref_dofs)
@@ -499,7 +488,6 @@ plt.xlabel('R')
 plt.ylabel('Z')
 plt.axis('equal')
 plt.colorbar()
-plt.show()
 
 # %%
 def dB_hat(x):
@@ -531,7 +519,6 @@ def plot_vector_form(dofs, basis, F_inv, pullback, x, plot_every=180):
     plt.ylabel('Z')
     plt.legend()
     plt.axis('equal')
-    plt.show()
 
 # %%
 plot_vector_form(B_ref_dofs, basis_fn_2forms, F_inv, pullback_2form, x)
@@ -593,7 +580,6 @@ ax2 = ax1.twinx()  # Create a twin y-axis
 ax2.plot(dE_values, '--', label='delta E')
 
 fig.legend(loc="upper left", bbox_to_anchor=(0.1, 0.85))
-plt.show()
 
 # %%
 B_ref_h = jit(get_u_h_vec(B_ref_dofs, basis_fn_2forms))
@@ -620,7 +606,6 @@ plt.xlabel('R')
 plt.ylabel('Z')
 plt.axis('equal')
 plt.legend()
-plt.show()
 # %%
 dB_ref_h = jit(get_u_h_vec(dB_ref_dofs, basis_fn_2forms))
 dB_h = jit(pullback_2form(dB_ref_h, F_inv))

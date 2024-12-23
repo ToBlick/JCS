@@ -1,19 +1,20 @@
 # %%
-import jax
-from jax import jit
-import jax.experimental
+from jax import jit, config
+from jax.experimental.sparse import bcsr_fromdense
+from jax.experimental.sparse.linalg import spsolve
 import jax.numpy as jnp
-import jax.experimental.sparse
 from mhd_equilibria.bases import *
 from mhd_equilibria.forms import *
 from mhd_equilibria.quadratures import *
 from mhd_equilibria.splines import *
+from mhd_equilibria.vector_bases import *
+from mhd_equilibria.projections import *
 from mhd_equilibria.operators import div
 
 import matplotlib.pyplot as plt 
 
 ### Enable double precision
-jax.config.update("jax_enable_x64", True)
+config.update("jax_enable_x64", True)
 
 ### This will print out the current backend (cpu/gpu)
 from jax.lib import xla_bridge
@@ -21,7 +22,7 @@ print(xla_bridge.get_backend().platform)
 
 # %%
 def sparse_solve(A, b):
-    return jax.experimental.sparse.linalg.spsolve(A.data, A.indices, A.indptr, b, tol=1e-12)
+    return spsolve(A.data, A.indices, A.indptr, b, tol=1e-12)
 
 # F maps the logical domain (unit cube) to the physical one
 def F(x):
@@ -69,7 +70,7 @@ for n in _ns:
         proj = get_l2_projection(basis3, x_q, w_q, N3)
 
         Q = jnp.block([[M2, -D.T], [D, jnp.zeros((N3, N3))]])
-        Q = jax.experimental.sparse.bcsr_fromdense(Q)
+        Q = bcsr_fromdense(Q)
         b = jnp.block([jnp.zeros(N2), proj(f)])
 
         # sigma_hat, u_hat = jnp.split(jnp.linalg.solve(Q, b), [N2])
