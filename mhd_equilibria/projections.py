@@ -2,6 +2,16 @@ from jax import grad, jacrev, jacfwd, hessian, vmap, jit
 import jax.numpy as jnp
 from functools import partial
 
+__all__ = [
+    "cyl_jacobian",
+    "integral",
+    "l2_product",
+    "get_l2_projection",
+    "get_double_crossproduct_projection",
+    # Uncomment and add if implementing:
+    # "get_l2_projection_vec",
+]
+
 def cyl_jacobian(x):
     r, θ, z = x
     return r

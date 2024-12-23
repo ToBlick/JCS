@@ -6,9 +6,9 @@ from mhd_equilibria.quadratures import *
 from mhd_equilibria.vector_bases import *
 import numpy.testing as npt
 from jax import numpy as jnp
-import jax
+from jax import jacfwd, config, jit
 import quadax as quad
-jax.config.update("jax_enable_x64", True)
+config.update("jax_enable_x64", True)
 
 class ProjectionTests(unittest.TestCase):
     
@@ -57,15 +57,15 @@ class ProjectionTests(unittest.TestCase):
         # plt.plot(f_hat)
         # plt.show()
         
-        print(jax.jacfwd(f_h)(jnp.array([0.5, 0.5, 0.5])))
-        print(jax.jacfwd(f)(jnp.array([0.5, 0.5, 0.5])))
+        print(jacfwd(f_h)(jnp.array([0.5, 0.5, 0.5])))
+        print(jacfwd(f)(jnp.array([0.5, 0.5, 0.5])))
         
         @jit
         def l2_err(x):
             return (f(x) - f_h(x))**2
         @jit
         def h1_err(x):
-            return jnp.dot(jax.jacfwd(f)(x) - jax.jacfwd(f_h)(x), jax.jacfwd(f)(x) - jax.jacfwd(f_h)(x))
+            return jnp.dot(jacfwd(f)(x) - jacfwd(f_h)(x), jacfwd(f)(x) - jacfwd(f_h)(x))
         
         # f_slice = lambda x: f(jnp.array([x, x, x]))
         # f_h_slice = lambda x: f_h(jnp.array([x, x, x]))   

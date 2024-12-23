@@ -1,5 +1,7 @@
 from jax import grad, jacrev, jacfwd, hessian, vmap, jit
 import jax.numpy as jnp
+from jax.lax import scan as lax_scan
+from jax.experimental.sparse import bcsr_fromdense
 from functools import partial
 
 from mhd_equilibria.bases import *
@@ -8,6 +10,25 @@ from mhd_equilibria.pullbacks import *
 from mhd_equilibria.operators import curl
 from mhd_equilibria.vector_bases import *
 
+__all__ = [
+    "get_mass_matrix_lazy",
+    "get_mass_matrix_lazy_0",
+    "get_mass_matrix_lazy_12",
+    "get_mass_matrix_lazy_1",
+    "get_mass_matrix_lazy_2",
+    "get_mass_matrix_lazy_3",
+    "get_curl_operator",
+    "get_curl_matrix_lazy",
+    "get_1_form_trace_lazy",
+    "get_2_form_trace_lazy",
+    "assemble_full_vmap",
+    "assemble",
+    "get_sparse_operator",
+    "sparse_assemble_row_3d",
+    "sparse_assemble_3d",
+    "sparse_assemble_row_3d_vec",
+    "sparse_assemble_3d_vec",
+]
 # Lazy functions for assembly
 
 def get_mass_matrix_lazy(basis_fn, x_q, w_q, F):
@@ -135,13 +156,13 @@ def assemble_full_vmap(M_lazy, ns, ms):
 # @partial(jit, static_argnums=(0,))
 def assemble(f, ns, ms):
     def scan_fn(carry, j):
-        row = jax.vmap(f, (None, 0))(j, ms)
+        row = vmap(f, (None, 0))(j, ms)
         return carry, row
-    _, M = jax.lax.scan(scan_fn, None, ns)
+    _, M = lax_scan(scan_fn, None, ns)
     return M
 
 def get_sparse_operator(M_lazy, ns, ms):
-    return jax.experimental.sparse.bcsr_fromdense(assemble(M_lazy, ns, ms))
+    return bcsr_fromdense(assemble(M_lazy, ns, ms))
 
 def sparse_assemble_row_3d(I, _M, shape, p):
     i, j, k = jnp.unravel_index(I, shape)

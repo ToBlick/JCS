@@ -3,6 +3,14 @@ from jax import numpy as jnp
 
 from functools import partial
 
+__all__ = [
+    "indicator",
+    "indicator_clamped",
+    "safe_divide",
+    "spline",
+    "knot_vector",
+    "get_spline",
+]
 # TODO: Splines right now only work on [0, 1]
 # TODO: NaN bug when differentiating splines of order 4 or higher
 

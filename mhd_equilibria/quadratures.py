@@ -3,6 +3,13 @@ import quadax as quad
 import jax
 from jax import vmap
 
+__all__ = [
+    "quadrature_grid",
+    "get_quadrature_periodic",
+    "get_quadrature_spectral",
+    "get_quadrature_composite",
+]
+
 def quadrature_grid(x, y, z):
     x_x, w_x = x
     x_y, w_y = y
