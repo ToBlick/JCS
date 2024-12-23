@@ -1,5 +1,5 @@
 # %%
-from jax import jacrev, jacfwd, hessian, vmap, jit
+from jax import jacrev, jacfwd, hessian, vmap, jit, grad, config
 import jax.numpy as jnp
 from functools import partial
 
@@ -15,7 +15,7 @@ from mhd_equilibria.pullbacks import *
 from mhd_equilibria.quadratures import *
 
 import matplotlib.pyplot as plt
-jax.config.update("jax_enable_x64", True)
+config.update("jax_enable_x64", True)
 
 import time
 
@@ -218,8 +218,8 @@ R = x[:, 0].reshape(nx, nx)
 Z = x[:, 2].reshape(nx, nx)
 
 # %%
-f_vals = jax.vmap(f)(x).reshape(nx, nx)
-# f_vals = jax.vmap(f_hat)(x_hat)
+f_vals = vmap(f)(x).reshape(nx, nx)
+# f_vals = vmap(f_hat)(x_hat)
 f_vals_reshaped = f_vals.reshape(nx, nx)
 
 # %%
@@ -241,13 +241,13 @@ plt.show()
 
 # %%
 
-grad_f_hat = jax.grad(f_hat_3d)
+grad_f_hat = grad(f_hat_3d)
 grad_f = pullback_1form(grad_f_hat, F_inv)
-grad_f_vals = jax.vmap(grad_f)(x)
+grad_f_vals = vmap(grad_f)(x)
 grad_f_vals_reshaped = grad_f_vals.reshape(nx, nx, 3)
 
-grad_f_direct = jax.grad(pullback_0form(f_hat, F_inv))
-grad_f_direct_vals = jax.vmap(grad_f)(x)
+grad_f_direct = grad(pullback_0form(f_hat, F_inv))
+grad_f_direct_vals = vmap(grad_f)(x)
 
 # %%
 cm = plt.get_cmap('viridis')
@@ -286,7 +286,7 @@ basis_fn_0forms = basis_fn
 # %%
 _basis = lambda x: basis_fn(x, 12)
 x_hat_ext = jnp.column_stack([x_hat, jnp.zeros(x_hat.shape[0])])
-_vals = jax.vmap(_basis)(x_hat_ext)
+_vals = vmap(_basis)(x_hat_ext)
 _vals_reshaped = _vals.reshape(nx, nx)
 cm = plt.get_cmap('viridis')
 plt.figure(figsize=(6, 6))
@@ -315,7 +315,7 @@ f_hat_dofs = 𝚷0(pullback_0form(f, F))
 f_hat_dofs = jnp.linalg.solve(M0_hat_assembled, f_hat_dofs)
 f_hat_h = get_u_h(f_hat_dofs, basis_fn_0forms)
 f_h = jit(pullback_0form(f_hat_h, F_inv))
-f_h_vals = jax.vmap(f_h)(x).reshape(nx, nx)
+f_h_vals = vmap(f_h)(x).reshape(nx, nx)
 
 # %%
 
@@ -368,7 +368,7 @@ grad_f_hat_dofs = jnp.linalg.solve(M1_ref_assembled, grad_f_hat_dofs)
 
 grad_f_hat_h = get_u_h_vec(grad_f_hat_dofs, basis_fn_1forms)
 grad_f_h = jit(pullback_1form(grad_f_hat_h, F_inv))
-grad_f_h_vals = jax.vmap(grad_f_h)(x)
+grad_f_h_vals = vmap(grad_f_h)(x)
 
 # %%
 grad_f_hat_dofs
@@ -439,8 +439,8 @@ B_ref = curl(A_ref)
 J_ref = curl(B_ref)
 B = pullback_2form(B_ref, F_inv)
 J = pullback_2form(J_ref, F_inv)
-B_vals = jax.vmap(B)(x)
-J_vals = jax.vmap(J)(x)
+B_vals = vmap(B)(x)
+J_vals = vmap(J)(x)
 
 # %%
 _helicity_0 = inner_product_1form(A_ref, B_ref, F)
@@ -457,8 +457,8 @@ H_ref_h = get_u_h_vec(H_ref_dofs, basis_fn_1forms)
 B_ref_h = get_u_h_vec(B_ref_dofs, basis_fn_2forms)
 H_h = jit(pullback_1form(H_ref_h, F_inv))
 B_h = jit(pullback_2form(B_ref_h, F_inv))
-H_h_vals = jax.vmap(H_h)(x)
-B_h_vals = jax.vmap(B_h)(x)
+H_h_vals = vmap(H_h)(x)
+B_h_vals = vmap(B_h)(x)
 
 # %%
 cm = plt.get_cmap('viridis')
@@ -490,7 +490,7 @@ rhs = get_double_crossproduct_projection(basis_fn_1forms, x_q, w_q, N1, F)
 E_ref_dofs = jnp.linalg.solve(M1_assembled, rhs(J_ref_h, H_ref_h, H_ref_h))
 E_ref_h = get_u_h_vec(E_ref_dofs, basis_fn_1forms)
 E_h = jit(pullback_1form(E_ref_h, F_inv))
-E_h_vals = jax.vmap(E_h)(x)
+E_h_vals = vmap(E_h)(x)
 # %%
 cm = plt.get_cmap('viridis')
 plt.figure(figsize=(12, 12))
@@ -506,20 +506,20 @@ def dB_hat(x):
     return curl(E_ref_h)(x)
 
 dB = jit(pullback_2form(dB_hat, F_inv))
-dB_vals = jax.vmap(dB)(x)
+dB_vals = vmap(dB)(x)
 
 # %%
 dB_ref_dofs = jnp.linalg.solve(M1_ref_assembled, C_assembled @ E_ref_dofs)
 dB_ref_h = jit(get_u_h_vec(dB_ref_dofs, basis_fn_2forms))
 dB_h = jit(pullback_2form(dB_ref_h, F_inv))
-dB_h_vals = jax.vmap(dB_h)(x)
+dB_h_vals = vmap(dB_h)(x)
 
 # %%
 
 def plot_vector_form(dofs, basis, F_inv, pullback, x, plot_every=180):
     u_ref_h = jit(get_u_h_vec(dofs, basis))
     u_h = jit(pullback(u_ref_h, F_inv))
-    u_h_vals = jax.vmap(u_h)(x)
+    u_h_vals = vmap(u_h)(x)
     plt.figure(figsize=(6, 6))
     plt.quiver(        x[::plot_every,0], 
                        x[::plot_every,2],
@@ -549,7 +549,7 @@ plot_vector_form(jnp.zeros_like(B_ref_dofs).at[5].set(1.0), basis_fn_2forms, F_i
 B_ref_dofs_0 = B_ref_dofs
 B_ref_h_0 = jit(get_u_h_vec(B_ref_dofs_0, basis_fn_2forms))
 B_h_0 = jit(pullback_2form(B_ref_h, F_inv))
-B_h_0_vals = jax.vmap(B_h)(x)
+B_h_0_vals = vmap(B_h)(x)
 
 E_values = []
 dE_values = []
@@ -598,7 +598,7 @@ plt.show()
 # %%
 B_ref_h = jit(get_u_h_vec(B_ref_dofs, basis_fn_2forms))
 B_h = jit(pullback_2form(B_ref_h, F_inv))
-B_h_vals = jax.vmap(B_h)(x)
+B_h_vals = vmap(B_h)(x)
 
 cm = plt.get_cmap('viridis')
 plt.figure(figsize=(6, 6))
@@ -624,7 +624,7 @@ plt.show()
 # %%
 dB_ref_h = jit(get_u_h_vec(dB_ref_dofs, basis_fn_2forms))
 dB_h = jit(pullback_2form(dB_ref_h, F_inv))
-dB_h_vals = jax.vmap(dB_h)(x)
+dB_h_vals = vmap(dB_h)(x)
 cm = plt.get_cmap('viridis')
 plt.figure(figsize=(6, 6))
 plt.quiver(         x[::80,0], 

@@ -9,6 +9,7 @@ from mhd_equilibria.quadratures import *
 from mhd_equilibria.bases import *
 from mhd_equilibria.vector_bases import *
 from mhd_equilibria.operators import *
+from mhd_equilibria.projections import *
 
 import numpy.testing as npt
 from jax import numpy as jnp

@@ -1,22 +1,20 @@
 #%%
-import jax
-jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
-from jax import grad, jit, vmap
+from jax import grad, jit, vmap, config
+config.update("jax_enable_x64", True)
 from functools import partial
 import numpy.testing as npt
 
-import jax.experimental.sparse
+from jax.experimental.sparse import bcsr_fromdense
+from jax.experimental.sparse.linalg import spsolve
 
 from mhd_equilibria.bases import *
 from mhd_equilibria.splines import *
 from mhd_equilibria.quadratures import *
 from mhd_equilibria.projections import *
 from mhd_equilibria.forms import *
-
-import matplotlib.pyplot as plt
 
 n = 8
 p = 3
@@ -30,12 +28,12 @@ dx_sp = jit(get_spline(n_dx, p-1, "clamped"))
 
 _x = jnp.linspace(0, 1, 1000)
 
+plt.figure()
 for i in range(n):
     # plt.plot(_x, vmap(sp, (0, None))(_x, i), label='p = 3')
     # plt.plot(_x, 0.1 * vmap(grad(sp), (0, None))(_x, i), label='p = 3')
     plt.plot(_x, vmap(dx_sp, (0, None))(_x, i), label='p = 2')
 plt.xlabel('x')
-plt.show()
 # %%
 dx_sp_2 = grad(sp)
 
@@ -108,6 +106,7 @@ print(jnp.linalg.norm(M0 - M02))
 # print(jnp.linalg.norm(M03 - M02))
 
 # %%
+plt.figure()
 plt.scatter(jnp.arange(n**3), M03[0,:])
 # %%
 
@@ -124,6 +123,7 @@ gradf_h2 = get_u_h(gradf_hat2, sp)
 # %%
 nx = 256
 _x = jnp.linspace(0, 1, nx)    
+plt.figure()
 # plt.plot(_x, vmap(f)(_x), label='f')
 plt.plot(_x, vmap(grad(f))(_x), label='∇f')
 # plt.plot(_x, vmap(f_h)(_x), label='f_h')
@@ -134,6 +134,7 @@ plt.xlabel('x')
 plt.legend(fontsize=14)
 
 # %%
+plt.figure()
 plt.plot(_x, jnp.abs(vmap(grad(f))(_x) - vmap(gradf_h2)(_x)), label='∇f - (∇f)ₕ: n = 16, p = 3')
 plt.plot(_x, jnp.abs(vmap(grad(f))(_x) - vmap(gradf_h)(_x) ), label='∇f - (∇f)ₕ: n = 15, p = 2')
 plt.plot(_x, jnp.abs(vmap(grad(f_h))(_x) - vmap(gradf_h2)(_x)), label='∇fₕ - (∇f)ₕ: n = 16, p = 3')
@@ -141,6 +142,7 @@ plt.plot(_x, jnp.abs(vmap(grad(f_h))(_x) - vmap(gradf_h)(_x) ), label='∇fₕ -
 plt.yscale('log')
 plt.xlabel('x')
 plt.legend(fontsize=14)
+plt.show()
 
 # %%
 print(jnp.linalg.norm(vmap(grad(f_h))(_x) - vmap(gradf_h)(_x)))
@@ -150,8 +152,8 @@ print(jnp.linalg.norm(vmap(grad(f))(_x) - vmap(gradf_h2)(_x)))
 # npt.assert_allclose(vmap(f_h)(_x), vmap(f)(_x), atol=1e-15)
 # %%
 
-M0 = jax.experimental.sparse.bcsr_fromdense(M0)
-f_hat = jax.experimental.sparse.linalg.spsolve(
+M0 = bcsr_fromdense(M0)
+f_hat = spsolve(
             M0.data, M0.indices, M0.indptr, proj0(f))
 
 # %%

@@ -1,16 +1,13 @@
 # %%
-import jax
-import jax.experimental
-import time
 from mhd_equilibria.vector_bases import get_vector_basis_fn
-jax.config.update("jax_enable_x64", True)
+from mhd_equilibria.pullbacks import *
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-from jax import grad, jit, vmap
+from jax import grad, jit, vmap, config, jacfwd
+config.update("jax_enable_x64", True)
 from functools import partial
 import numpy.testing as npt
-
-import jax.experimental.sparse
+from jax.experimental.sparse.linalg import spsolve
 
 from mhd_equilibria.bases import *
 from mhd_equilibria.splines import *
@@ -198,7 +195,7 @@ def Δstar(psi):
         J_inv = jnp.eye(3).at[0,0].set(1/R)
         J = jnp.eye(3).at[0,0].set(R)
         scaled_grad_psi = lambda x: J_inv @ grad(psi)(x)
-        return jnp.trace(J @ jax.jacfwd(scaled_grad_psi)(x))
+        return jnp.trace(J @ jacfwd(scaled_grad_psi)(x))
         # return jnp.trace(jax.hessian(psi)(x)) - 1/R * jax.grad(psi)(x)[0]
     return Δstar_psi
 

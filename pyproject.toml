@@ -37,6 +37,8 @@ dependencies = [
     "matplotlib",
     "orthax",
     "quadax",
+    "optax",
+    "ipywidgets",
     "chex",
     "ruff"
 ]

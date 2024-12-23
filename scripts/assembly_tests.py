@@ -7,7 +7,8 @@ from mhd_equilibria.bases import *
 from mhd_equilibria.forms import *
 from mhd_equilibria.quadratures import *
 from mhd_equilibria.splines import *
-from mhd_equilibria.vector_bases import get_vector_basis_fn
+from mhd_equilibria.vector_bases import \
+    get_vector_basis_fn, get_zero_form_basis, get_one_form_basis
 
 import matplotlib.pyplot as plt 
 
@@ -29,8 +30,10 @@ def F_inv(x):
 ns = (6, 7, 3)
 ps = (3, 3, 0)
 types = ('clamped', 'periodic', 'fourier')
-basis0, shape0, N0 = get_zero_form_basis( ns, ps, types)
-basis1, shapes1, N1 = get_one_form_basis( ns, ps, types)
+# Alan: no idea if this makes sense but BC required for get_zero_form_basis
+BCs = ('dirichlet', 'dirichlet', 'dirichlet') 
+basis0, shape0, N0 = get_zero_form_basis( ns, ps, types, BCs)
+basis1, shapes1, N1 = get_one_form_basis( ns, ps, types, BCs)
 
 x_q, w_q = quadrature_grid(
             get_quadrature_composite(jnp.linspace(0, 1, 5 - 2 + 1), 15),

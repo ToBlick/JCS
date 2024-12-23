@@ -1,6 +1,7 @@
 # %%
 from jax import grad, jacrev, jacfwd, hessian, vmap, jit
 import jax.numpy as jnp
+from jax.lax import cond
 from functools import partial
 
 import numpy as np
@@ -14,6 +15,9 @@ from mhd_equilibria.operators import *
 import matplotlib.pyplot as plt
 
 import time
+
+
+#### TODO: Give all these plots titles, so we know what we are looking at.
 
 # %%
 ### Constants
@@ -57,12 +61,12 @@ def get_p(Psi):
 def Psi_restricted(x):
     T = Psi(jnp.array([R0 - 0.66, Φ, 0.0]))
     R, φ, Z = x
-    return jax.lax.cond( Psi(x) < T, lambda x: Psi(x), lambda x: T, x)
+    return cond( Psi(x) < T, lambda x: Psi(x), lambda x: T, x)
 
 def mask(f):
     def f_masked(x):
         T = Psi(jnp.array([R0 - 0.66, Φ, 0.0]))
-        return jax.lax.cond( Psi(x) < T, lambda x: f(x), lambda x: f(x) * 0, x)
+        return cond( Psi(x) < T, lambda x: f(x), lambda x: f(x) * 0, x)
     return f_masked
 
 B = get_B(Psi_restricted)
@@ -103,8 +107,8 @@ _ns = jnp.arange(n1*n2*n3, dtype=jnp.int32)
 
 J = lambda x: x[0] # J(R, φ, Z) = R
 
-l2_proj = get_l2_projection(basis_fn, J, x, w_q, n1*n2*n3)
-M_ij = get_mass_matrix_lazy(basis_fn, J, x, w_q, n1*n2*n3)
+l2_proj = get_l2_projection(basis_fn, x, w_q, n1*n2*n3)
+M_ij = get_mass_matrix_lazy(basis_fn, x, w_q, n1*n2*n3)
 M = vmap(vmap(M_ij, (0, None)), (None, 0))(_ns, _ns)
 
 # %%
@@ -131,7 +135,6 @@ plt.contour(_R, _Z, vmap(get_u_h(Psi_hat, basis_fn))(x).reshape(nx, nx).T, 10, c
 plt.xlabel(r'$R$')
 plt.ylabel(r'$Z$')
 plt.colorbar()
-plt.show()
         
 # %%
 ### Brute force!
@@ -194,7 +197,6 @@ plt.quiver( x[::100,0], x[::100,2],
     )
 plt.xlabel(r'$R$')
 plt.ylabel(r'$Z$')
-plt.show()
 
 # %%
 p_h = jit(get_p_h(p_hat))
@@ -202,14 +204,12 @@ plt.contourf(_R, _Z, vmap(p_h)(x).reshape(nx, nx).T)
 plt.xlabel(r'$R$')
 plt.ylabel(r'$Z$')
 plt.colorbar()
-plt.show()
 
 # %%
 plt.contourf(_R, _Z, vmap(mask(cyl_curl(B_h)))(x)[:,1].reshape(nx, nx).T, 100)
 plt.xlabel(r'$R$')
 plt.ylabel(r'$Z$')
 plt.colorbar()
-plt.show()
 
 # %%
 F_h = jit(get_F_h(Psi_hat, p_hat))
@@ -220,14 +220,12 @@ plt.quiver( x[::100,0], x[::100,2],
     )
 plt.xlabel(r'$R$')
 plt.ylabel(r'$Z$')
-plt.show()
 
 # %%
 plt.contourf(_R, _Z, vmap(mask(cyl_div(F_h)))(x).reshape(nx, nx).T, 100)
 plt.xlabel(r'$R$')
 plt.ylabel(r'$Z$')
 plt.colorbar()
-plt.show()
 
 # %%
 _start = time.time()
@@ -260,7 +258,7 @@ for _ in range(100):
     Psi_dot = jit(get_Psi_dot(Psi_hat, p_hat))
     p_dot = jit(get_p_dot(Psi_hat, p_hat))
     v = jit(get_v(Psi_hat, p_hat))
-    Energy = l2_product(v, v, J, x, w_q)
+    Energy = l2_product(v, v, x, w_q)
     print("|F|^2 = ", Energy)
     
     Psi_dot_hat = jnp.linalg.solve(M, l2_proj(Psi_dot))
@@ -276,6 +274,7 @@ for _ in range(100):
 B_h = get_B_h(Psi_hats[-1])
 B_h_0 = get_B_h(Psi_hats[0])
 
+plt.figure()
 plt.quiver( x[::100,0], x[::100,2],
     vmap(mask(B_h))(x)[::100,0],
     vmap(mask(B_h))(x)[::100,2],
@@ -288,34 +287,40 @@ plt.quiver( x[::100,0], x[::100,2],
     )
 plt.xlabel(r'$R$')
 plt.ylabel(r'$Z$')
-plt.show()
 
 # %%
+plt.figure()
+plt.subplot(3, 1, 1)
 Psi_h = get_Psi_h(Psi_hats[-1])
 Psi_h_0 = get_Psi_h(Psi_hats[0])
 plt.contour(_R, _Z, vmap(Psi_restricted)(x).reshape(nx, nx).T,  10, colors='black', alpha = 0.5)
+plt.subplot(3, 1, 2)
 plt.contour(_R, _Z, vmap(Psi_h_0)(x).reshape(nx, nx).T,         10, colors='red', alpha = 0.5)
+plt.subplot(3, 1, 3)
 plt.contour(_R, _Z, vmap(Psi_h)(x).reshape(nx, nx).T,           10, colors='blue', alpha = 0.5)
 plt.xlabel(r'$R$')
 plt.ylabel(r'$Z$')
 plt.colorbar()
-plt.show()
 
 # %%
+plt.figure()
+plt.subplot(3, 1, 1)
 p_h = get_p_h(p_hats[-1])
 p_h_0 = get_p_h(Psi_hats[0])
 plt.contour(_R, _Z, vmap(p)(x).reshape(nx, nx).T,  10, colors='black', alpha = 0.5)
+plt.subplot(3, 1, 2)
 plt.contour(_R, _Z, vmap(p_h_0)(x).reshape(nx, nx).T,         10, colors='red', alpha = 0.5)
+plt.subplot(3, 1, 3)
 plt.contour(_R, _Z, vmap(p_h)(x).reshape(nx, nx).T,           10, colors='blue', alpha = 0.5)
 plt.xlabel(r'$R$')
 plt.ylabel(r'$Z$')
 plt.colorbar()
-plt.show()
 # %%
 
 B_h = get_B_h(Psi_hats[-1])
 B_h_0 = get_B_h(Psi_hats[0])
 
+plt.figure()
 plt.quiver( x[::100,0], x[::100,2],
     vmap(mask(B_h))(x)[::100,0],
     vmap(mask(B_h))(x)[::100,2],
@@ -328,7 +333,6 @@ plt.quiver( x[::100,0], x[::100,2],
     )
 plt.xlabel(r'$R$')
 plt.ylabel(r'$Z$')
-plt.show()
 
 # %%
 
@@ -336,6 +340,7 @@ plt.show()
 import ipywidgets as widgets
 from IPython.display import display
 
+plt.figure()
 def update(i):
     p_h = (get_p_h(p_hats[i]))
     plt.contourf(_R, _Z, vmap(p_h)(x).reshape(nx, nx).T)
@@ -355,6 +360,7 @@ interactive = widgets.interactive(update, i=i_slider)
 display(interactive)
 # %%
 
+plt.figure()
 def update(i):
     F_h = jit(get_F_h(Psi_hats[i], p_hats[i]))
     plt.quiver( x[::100,0], x[::100,2],
@@ -377,19 +383,20 @@ interactive = widgets.interactive(update, i=i_slider)
 display(interactive)
 # %%
 
+plt.figure()
 plt.plot(Energies)
 plt.xlabel("iteration")
 plt.ylabel("Energy")
 plt.yscale('log')
-plt.show()
 # %%
+plt.figure()
 F_h = jit(get_F_h(Psi_hat, p_hat))
 plt.contourf(_R, _Z, vmap((cyl_curl(F_h)))(x)[:, 1].reshape(nx, nx).T, 100)
 plt.xlabel(r'$R$')
 plt.ylabel(r'$Z$')
 plt.colorbar()
-plt.show()
 # %%
+plt.figure()
 F_h = jit(get_F_h(Psi_hat, p_hat))
 plt.contourf(_R, _Z, vmap((cyl_div(F_h)))(x).reshape(nx, nx).T, 100)
 plt.xlabel(r'$R$')
@@ -398,6 +405,7 @@ plt.colorbar()
 plt.show()
 # %%
 
+plt.figure()
 def update(i):
     Psi_h = (get_Psi_h(Psi_hats[i]))
     plt.contourf(_R, _Z, vmap(((Psi_h)))(x).reshape(nx, nx).T)
@@ -417,6 +425,7 @@ interactive = widgets.interactive(update, i=i_slider)
 display(interactive)
 # %%
 
+plt.figure()
 def update(i):
     p_h = (get_p_h(p_hats[i]))
     plt.contourf(_R, _Z, vmap(((p_h)))(x).reshape(nx, nx).T)
