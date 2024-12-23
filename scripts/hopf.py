@@ -128,6 +128,7 @@ M02[0,0]
 end = time.time()
 print(end - start)
 
+M0 = jax.experimental.sparse.bcsr_fromdense(M0)
 # print(jnp.linalg.norm(M0 - M02))
 
 # %%
@@ -140,8 +141,8 @@ _M1 = jit(get_mass_matrix_lazy_1(basis1, x_q, w_q, F))
 M1_1 = assemble(_M1, jnp.arange(N1_1), jnp.arange(N1_1))
 M1_2 = assemble(_M1, jnp.arange(N1_1, N1_1+N1_2), jnp.arange(N1_1, N1_1+N1_2))
 M1_3 = assemble(_M1, jnp.arange(N1_1+N1_2, N1), jnp.arange(N1_1+N1_2, N1))
-# M1 = jax.experimental.sparse.bcsr_fromdense(jax.scipy.linalg.block_diag(M1_1, M1_2, M1_3))
-M1 = jnp.array(jax.scipy.linalg.block_diag(M1_1, M1_2, M1_3))
+M1 = jax.experimental.sparse.bcsr_fromdense(jax.scipy.linalg.block_diag(M1_1, M1_2, M1_3))
+# M1 = jnp.array(jax.scipy.linalg.block_diag(M1_1, M1_2, M1_3))
 
 # %%
 M1_smart_rowI = sparse_assemble_row_3d_vec(0, _M1, shapes_1forms, 3)
@@ -149,7 +150,7 @@ M1_smart_rowI = sparse_assemble_row_3d_vec(0, _M1, shapes_1forms, 3)
 # %%
 jnp.linalg.norm(M1[0] - M1_smart_rowI)
 # %%
-M1_smart = sparse_assemble_3d_vec(_M1, shapes_1forms, 3)
+# M1_smart = sparse_assemble_3d_vec(_M1, shapes_1forms, 3)
 # %%
 _M2 = jit(get_mass_matrix_lazy_2(basis2, x_q, w_q, F))
 M2_1 = assemble(_M2, jnp.arange(N2_1), jnp.arange(N2_1))
