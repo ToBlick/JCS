@@ -79,20 +79,22 @@ for n in _ns:
 
         def err(x):
             return jnp.sum((u_h(x) - u(x))**2)
-        error = integral(err, x_q, w_q)
+        error = jnp.sqrt(integral(err, x_q, w_q))
         errors.append(error)
         print(f'n = {n}, p = {p}, error = {error}')
 
 # %%
 
-### Convergence plot - the dashed lines are convergence with rate 2p-1
+### Convergence plot - the dashed lines are convergence with rate p
 arrerrors = jnp.array(errors).reshape((len(_ns), len(_ps)))
 for (i,p) in enumerate(_ps):
     plt.plot(_ns, jnp.sqrt(arrerrors[:,i]), label=f'p = {p}', marker='s')
-    plt.plot(_ns[-2:], jnp.sqrt(arrerrors[-2,i]) * 2 * jnp.array([1, (_ns[-2]/_ns[-1])**(2*p - 1)]), linestyle='--', color='grey')
+    plt.plot(_ns[-2:], jnp.sqrt(arrerrors[-2,i]) * 1.3 * jnp.array([1, (_ns[-2]/_ns[-1])**(p)]), linestyle='--', color='grey')
 plt.xlabel('n')
 plt.ylabel('error')
 plt.yscale('log')
 plt.xscale('log')
 plt.grid('minor')
 plt.legend()
+
+# %%

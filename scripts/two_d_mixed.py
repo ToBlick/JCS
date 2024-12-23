@@ -89,6 +89,7 @@ def f(x):
     return 2 * (2 * jnp.pi)**2 * jnp.sin(2 * jnp.pi * x[0]) * jnp.sin(2 * jnp.pi * x[1])
 def u(x):
     return jnp.sin(jnp.pi * 2 * x[0]) * jnp.sin(2 * jnp.pi * x[1])
+proj = get_l2_projection(basis3, x_q, w_q, N3)
 
 ###
 # D σ = p(f) in L2
@@ -96,23 +97,33 @@ def u(x):
 # -> σ = M⁻¹ D.T u
 # -> Dσ = D M⁻¹ D.T u = p(f)
 # -> (D M⁻¹ D.T) u = p(f) 
+# or
+#
+# | M  -D.T | | σ | = |  0   |
+# | D   0   | | u | = | p(f) |
+#
 ###
+Q = jnp.block([[M2.todense(), -D.todense().T], [D.todense(), jnp.zeros((N3, N3))]])
+b = jnp.block([jnp.zeros(N2), proj(f)])
 
 # %%
 def sparse_solve(A, b):
     return jax.experimental.sparse.linalg.spsolve(A.data, A.indices, A.indptr, b, tol=1e-12)
 
-D = D.todense()
-Q = jnp.array([sparse_solve(M2, D[i,:]) for i in range(N3)]).T
-L = jax.experimental.sparse.bcsr_fromdense(D @ Q)
-D = jax.experimental.sparse.bcsr_fromdense(D)
+Q_sp = jax.experimental.sparse.bcsr_fromdense(Q)
+sigma_hat, u_hat = jnp.split(sparse_solve(Q_sp, b), [N2])
+
 
 # %%
-proj = get_l2_projection(basis3, x_q, w_q, N3)
-# f_hat = jnp.linalg.solve(M, proj(f))
-# f_h = get_u_h(f_hat, basis0)
-u_hat = sparse_solve(L, proj(f))
+# D = D.todense()
+# Q = jnp.array([sparse_solve(M2, D[i,:]) for i in range(N3)]).T
+# L = jax.experimental.sparse.bcsr_fromdense(D @ Q)
+# D = jax.experimental.sparse.bcsr_fromdense(D)
+# u_hat = sparse_solve(L, proj(f))
+
+# %%
 u_h = get_u_h(u_hat, basis3)
+sigma_h = get_u_h_vec(sigma_hat, basis2)
 
 def err(x):
     return jnp.sum((u_h(x) - u(x))**2)
@@ -121,10 +132,19 @@ error = jnp.sqrt(integral(err, x_q, w_q))
 print(f'n = {n}, p = {p}, error = {error}')
 
 # %%
-# plt.contourf(_x1, _x2, (vmap(u_h)(_x) - vmap(u)(_x)).reshape(nx, nx))
-# plt.colorbar()
-# plt.xlabel('x')
-# plt.ylabel('y')
+plt.contourf(_x1, _x2, (vmap(u_h)(_x) - vmap(u)(_x)).reshape(nx, nx))
+plt.colorbar()
+plt.xlabel('x')
+plt.ylabel('y')
+
+# %%
+_basis = lambda x: basis2(x, 66)
+plt.quiver(_x1, _x2, 
+          (vmap(sigma_h)(_x)[:,0]).reshape(nx, nx), 
+          (vmap(sigma_h)(_x)[:,1]).reshape(nx, nx),
+          scale=300)
+plt.xlabel('x')
+plt.ylabel('y')
 
 # %%
 @jit
