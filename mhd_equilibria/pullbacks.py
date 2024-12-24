@@ -1,6 +1,17 @@
 import jax
 from jax import numpy as jnp
 
+__all__ = [
+    "pullback_0form",
+    "pullback_1form",
+    "pullback_2form",
+    "pullback_3form",
+    "inner_product_1form",
+    "inner_product_0form",
+    "inv22",
+    "inv33",
+]
+
 def pullback_0form(p, F):
     def pullback(x):
         return p(F(x))

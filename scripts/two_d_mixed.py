@@ -1,22 +1,25 @@
 # %%
-import jax
-from jax import jit
-import jax.experimental
+from jax import jit, config, vmap
+from jax.scipy.linalg import eigh
+from jax.experimental.sparse import bcsr_fromdense
+from jax.experimental.sparse.linalg import spsolve
 import jax.numpy as jnp
+from jax.lib import xla_bridge
 import jax.experimental.sparse
 from mhd_equilibria.bases import *
 from mhd_equilibria.forms import *
 from mhd_equilibria.quadratures import *
 from mhd_equilibria.splines import *
 from mhd_equilibria.operators import div
+from mhd_equilibria.vector_bases import *
+from mhd_equilibria.projections import *
 
 import matplotlib.pyplot as plt 
 
 ### Enable double precision
-jax.config.update("jax_enable_x64", True)
+config.update("jax_enable_x64", True)
 
 ### This will print out the current backend (cpu/gpu)
-from jax.lib import xla_bridge
 print(xla_bridge.get_backend().platform)
 
 # %%
@@ -70,7 +73,7 @@ def divergence_matrix_lazy(i, j):
         return lambda x: basis2(x, k)
     return l2_product(lambda x: div(get_basis(i))(x), lambda x: basis3(x, j), x_q, w_q)
 D = assemble(divergence_matrix_lazy, jnp.arange(N2), jnp.arange(N3)).T
-D = jax.experimental.sparse.bcsr_fromdense(D)
+D = bcsr_fromdense(D)
 
 
 # %%
@@ -82,7 +85,7 @@ def mass_matrix_lazy_2(i, j):
 
 M2 = assemble(mass_matrix_lazy_2, jnp.arange(N2), jnp.arange(N2))
 # %%
-M2 = jax.experimental.sparse.bcsr_fromdense(M2)
+M2 = bcsr_fromdense(M2)
 
 # %%
 def f(x):
@@ -108,17 +111,17 @@ b = jnp.block([jnp.zeros(N2), proj(f)])
 
 # %%
 def sparse_solve(A, b):
-    return jax.experimental.sparse.linalg.spsolve(A.data, A.indices, A.indptr, b, tol=1e-12)
+    return spsolve(A.data, A.indices, A.indptr, b, tol=1e-12)
 
-Q_sp = jax.experimental.sparse.bcsr_fromdense(Q)
+Q_sp = bcsr_fromdense(Q)
 sigma_hat, u_hat = jnp.split(sparse_solve(Q_sp, b), [N2])
 
 
 # %%
 # D = D.todense()
 # Q = jnp.array([sparse_solve(M2, D[i,:]) for i in range(N3)]).T
-# L = jax.experimental.sparse.bcsr_fromdense(D @ Q)
-# D = jax.experimental.sparse.bcsr_fromdense(D)
+# L = bcsr_fromdense(D @ Q_sp)
+# D = bcsr_fromdense(D)
 # u_hat = sparse_solve(L, proj(f))
 
 # %%
@@ -154,7 +157,7 @@ def mass_matrix_lazy_3(i, j):
     return l2_product(get_basis(i), get_basis(j), x_q, w_q)
 # M3 = piecewise_assemble(mass_matrix_lazy_2, jnp.arange(N3), jnp.arange(N3), 4)
 M3 = assemble(mass_matrix_lazy_2, jnp.arange(N3), jnp.arange(N3))
-M3 = jax.experimental.sparse.bcsr_fromdense(M3)
+M3 = bcsr_fromdense(M3)
 
 # def sparse_solve(A, b):
 #     return jax.experimental.sparse.linalg.spsolve(A.data, A.indices, A.indptr, b)
@@ -164,8 +167,8 @@ M3 = jax.experimental.sparse.bcsr_fromdense(M3)
 L = L.todense()
 M3 = M3.todense()
 evs, evecs = jnp.linalg.eigh(jnp.linalg.solve(M3, L))
-L = jax.experimental.sparse.bcsr_fromdense(L)
-M3 = jax.experimental.sparse.bcsr_fromdense(M3)
+L = bcsr_fromdense(L)
+M3 = bcsr_fromdense(M3)
 # %%
 
 ###
@@ -184,15 +187,15 @@ def generalized_eigh(A, B):
     ### Q B.T = A.T -> B Q.T = A
     ### Q C = B
     C = jnp.linalg.solve(Q, jnp.linalg.solve(Q, A.T).T)
-    eigenvalues, eigenvectors_transformed = jax.scipy.linalg.eigh(C)
+    eigenvalues, eigenvectors_transformed = eigh(C)
     eigenvectors_original = jnp.linalg.solve(Q.T, eigenvectors_transformed)
     return eigenvalues, eigenvectors_original
 # %%
 L = L.todense()
 M3 = M3.todense()
 evs, evecs = generalized_eigh(L, M3)
-L = jax.experimental.sparse.bcsr_fromdense(L)
-M3 = jax.experimental.sparse.bcsr_fromdense(M3)
+L = bcsr_fromdense(L)
+M3 = bcsr_fromdense(M3)
 # %%
 
 ###

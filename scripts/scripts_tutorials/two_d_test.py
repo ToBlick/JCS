@@ -1,17 +1,18 @@
 # %%
-import jax
-from jax import jit
+from jax import jit, grad, config
 import jax.numpy as jnp
 import jax.experimental.sparse
 from mhd_equilibria.bases import *
 from mhd_equilibria.forms import *
 from mhd_equilibria.quadratures import *
 from mhd_equilibria.splines import *
+from mhd_equilibria.vector_bases import *
+from mhd_equilibria.projections import *
 
 import matplotlib.pyplot as plt 
 
 ### Enable double precision
-jax.config.update("jax_enable_x64", True)
+config.update("jax_enable_x64", True)
 import time
 
 ### Prints out the backend in use (cpu/gpu)
@@ -87,6 +88,8 @@ for n in _ns:
 
 ### Convergence plot - the dashed lines are convergence with rate p
 arrerrors = jnp.array(errors).reshape((len(_ns), len(_ps)))
+plt.figure()
+plt.title('Convergence plots')
 for (i,p) in enumerate(_ps):
     plt.plot(_ns, jnp.sqrt(arrerrors[:,i]), label=f'p = {p}', marker='s')
     plt.plot(_ns[-2:], jnp.sqrt(arrerrors[-2,i]) * 1.3 * jnp.array([1, (_ns[-2]/_ns[-1])**(p)]), linestyle='--', color='grey')

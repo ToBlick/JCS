@@ -1,4 +1,5 @@
 import unittest
+
 from mhd_equilibria.quadratures import *
 from mhd_equilibria.bases import *
 import numpy.testing as npt

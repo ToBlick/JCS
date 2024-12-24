@@ -1,18 +1,16 @@
-# %%
-import jax
-from jax import jit
-import jax.experimental
+from jax import jit, grad, config, vmap
 import jax.numpy as jnp
-import jax.experimental.sparse
+from jax.experimental.sparse import bcsr_fromdense
 from mhd_equilibria.bases import *
 from mhd_equilibria.forms import *
 from mhd_equilibria.quadratures import *
 from mhd_equilibria.splines import *
 from mhd_equilibria.operators import laplacian
-from mhd_equilibria.vector_bases import get_vector_basis_fn
+from mhd_equilibria.vector_bases import *
+from mhd_equilibria.projections import *
 
 import matplotlib.pyplot as plt 
-jax.config.update("jax_enable_x64", True)
+config.update("jax_enable_x64", True)
 import time
 
 from jax.lib import xla_bridge
@@ -87,7 +85,7 @@ def u(x):
 
 L = G @ jnp.linalg.solve(M0, G.T)
 L = jnp.where(jnp.abs(L) > 1e-4, L, jnp.zeros_like(L))
-L_sp = jax.experimental.sparse.bcsr_fromdense(L)
+L_sp = bcsr_fromdense(L)
 
 print(L_sp)
 # %%
@@ -105,7 +103,7 @@ error = integral(err, x_q, w_q)
 print(f'n = {n}, p = {p}, error = {error}')
 
 # %%
-L_sp = jax.experimental.sparse.bcsr_fromdense(jnp.where(jnp.abs(L) > 1e-6, L, jnp.zeros_like(L)))
+L_sp = bcsr_fromdense(jnp.where(jnp.abs(L) > 1e-6, L, jnp.zeros_like(L)))
 
 # %%
 plt.plot(_x[:, 0], vmap(u_h)(_x), color='c', label='u_h', alpha = 0.5)
