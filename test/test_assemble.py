@@ -36,8 +36,10 @@ class AssemblyTests(unittest.TestCase):
         ns = (6, 7, 3)
         ps = (3, 3, 0)
         types = ('clamped', 'periodic', 'fourier')
-        basis0, shape0, N0 = get_zero_form_basis( ns, ps, types)
-        basis1, shapes1, N1 = get_one_form_basis( ns, ps, types)
+        # Alan: added this since get_zero_form_basis wants the BCs
+        BCs = ('dirichlet', 'dirichlet', 'dirichlet')
+        basis0, shape0, N0 = get_zero_form_basis( ns, ps, types, BCs)
+        basis1, shapes1, N1 = get_one_form_basis( ns, ps, types, BCs)
         
         print(N0, N1)
 
