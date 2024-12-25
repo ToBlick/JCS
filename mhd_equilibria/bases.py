@@ -5,6 +5,17 @@ from jax import vmap, grad
 from functools import partial
 import orthax
 
+__all__ = ['_trig_fn', 'get_trig_fn', '_binom',
+    '_get_legendre_coeff', '__get_legendre_coeffs', '_get_legendre_coeffs',
+    'get_legendre_fn_x', 'get_chebyshev_fn_x', 'get_polynomial_basis_fn',
+    '_fringe_idx', '_ansi_idx', '_unravel_ansi_idx', 
+    'get_radial_zernike_coeff', '_get_radial_zernike_coeff',
+    '_get_radial_zernike_coeffs', '__get_radial_zernike_coeffs',
+    'get_zernike_fn_x', 'get_zernike_fn_radial_derivative', 
+    '_lin_to_cart', 'get_tensor_basis_fn', 'get_zernike_tensor_basis_fn',
+    'construct_tensor_basis', 'construct_zernike_tensor_basis',
+    'get_u_h_vec', 'get_u_h']
+
 ### ! TODO:
 # There is some bug going on with Legendre bases under autodiff
 

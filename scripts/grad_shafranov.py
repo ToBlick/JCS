@@ -1,16 +1,14 @@
 # %%
-import jax
-import jax.experimental
-import time
+# import time
 from mhd_equilibria.vector_bases import get_vector_basis_fn
-jax.config.update("jax_enable_x64", True)
+from mhd_equilibria.pullbacks import *
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-from jax import grad, jit, vmap
+from jax import grad, jit, vmap, config, jacfwd
+config.update("jax_enable_x64", True)
 from functools import partial
 import numpy.testing as npt
-
-import jax.experimental.sparse
+from jax.experimental.sparse.linalg import spsolve
 
 from mhd_equilibria.bases import *
 from mhd_equilibria.splines import *
@@ -150,11 +148,12 @@ for n in ns:
         end = time.time()
         print("Time to assemble mass matrices: ", end - start)
         def solve(M, b):
-            return jax.experimental.sparse.linalg.spsolve(M.data, M.indices, M.indptr, b)
+            return spsolve(M.data, M.indices, M.indptr, b)
 
         lambda0_hat = solve(M0, proj0(pullback_3form(lambda_analytic, F)))
         lambda0_h = jit(get_u_h(lambda0_hat, basis0))
 
+        plt.figure()
         plt.contourf(_R_hat, _Z_hat, (vmap(lambda0_h)(_x_hat)).reshape(nx, nx), levels=50)
         plt.colorbar()
         plt.xlabel(r'$\hat{R}$')
@@ -219,6 +218,7 @@ for n in ns:
         # plt.contourf(_R_hat, _Z_hat, vmap(lambda0_h)(_x_hat).reshape(nx, nx), levels=50)
         # plt.colorbar()
         # # %%
+        plt.figure()
         plt.contourf(_R_hat, _Z_hat, vmap(psi_h)(_x_hat).reshape(nx, nx), levels=50)
         plt.colorbar()
         # # %%
@@ -247,6 +247,7 @@ for n in ns:
 # %%
 errors = jnp.array(errors).reshape((len(ns), len(ps)))
 
+plt.figure()
 plt.plot(ns, errors[:, 0], label='p = 1')
 plt.plot(ns, errors[:, 1], label='p = 2')
 plt.plot(ns, errors[:, 2], label='p = 3')
@@ -260,6 +261,7 @@ plt.ylabel(r'Relative error of $\psi$')
 # %%
 ns = jnp.array(ns) * 1.0
 # Plot the errors with markers
+plt.figure()
 plt.plot(ns, errors[:, 0], label='p = 1', marker='v', color='k')
 plt.plot(ns, errors[:, 1], label='p = 2', marker='o', color='r')
 plt.plot(ns, errors[:, 2], label='p = 3', marker='s', color='g')

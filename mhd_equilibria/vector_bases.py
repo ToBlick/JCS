@@ -6,6 +6,16 @@ from mhd_equilibria.bases import get_tensor_basis_fn, get_trig_fn
 from mhd_equilibria.splines import get_spline
 from functools import partial
 
+__all__ = [
+    "unravel_vector_index",
+    "ravel_vector_index",
+    "get_vector_basis_fn",
+    "get_zero_form_basis",
+    "get_one_form_basis",
+    "get_two_form_basis",
+    "get_three_form_basis",
+]
+
 # #TODO: This feels very inelegant
 # def get_scalar_basis_fn(basis, shape):
 #     def basis_fn(x, i):

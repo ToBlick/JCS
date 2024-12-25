@@ -1,6 +1,5 @@
 # %%
-import jax
-from jax import jit
+from jax import jit, config, vmap, grad
 import jax.numpy as jnp
 import jax.experimental.sparse
 from mhd_equilibria.bases import *
@@ -8,10 +7,11 @@ from mhd_equilibria.forms import *
 from mhd_equilibria.quadratures import *
 from mhd_equilibria.splines import *
 from mhd_equilibria.operators import laplacian
-from mhd_equilibria.vector_bases import get_vector_basis_fn
+from mhd_equilibria.vector_bases import *
+from mhd_equilibria.projections import *
 
 import matplotlib.pyplot as plt 
-jax.config.update("jax_enable_x64", True)
+config.update("jax_enable_x64", True)
 import time
 
 from jax.lib import xla_bridge

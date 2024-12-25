@@ -1,10 +1,13 @@
 # %%
-import jax
+from jax import vmap
 from jax import jit
 import jax.numpy as jnp
-import jax.experimental.sparse
+from jax.scipy.linalg import block_diag
+from jax.experimental.sparse import bcsr_fromdense
+from jax.experimental.sparse.linalg import spsolve
 from mhd_equilibria.bases import *
 from mhd_equilibria.forms import *
+from mhd_equilibria.pullbacks import *
 from mhd_equilibria.quadratures import *
 from mhd_equilibria.splines import *
 from mhd_equilibria.vector_bases import get_vector_basis_fn
@@ -128,7 +131,7 @@ M02[0,0]
 end = time.time()
 print(end - start)
 
-M0 = jax.experimental.sparse.bcsr_fromdense(M0)
+M0 = bcsr_fromdense(M0)
 # print(jnp.linalg.norm(M0 - M02))
 
 # %%
@@ -141,8 +144,8 @@ _M1 = jit(get_mass_matrix_lazy_1(basis1, x_q, w_q, F))
 M1_1 = assemble(_M1, jnp.arange(N1_1), jnp.arange(N1_1))
 M1_2 = assemble(_M1, jnp.arange(N1_1, N1_1+N1_2), jnp.arange(N1_1, N1_1+N1_2))
 M1_3 = assemble(_M1, jnp.arange(N1_1+N1_2, N1), jnp.arange(N1_1+N1_2, N1))
-M1 = jax.experimental.sparse.bcsr_fromdense(jax.scipy.linalg.block_diag(M1_1, M1_2, M1_3))
-# M1 = jnp.array(jax.scipy.linalg.block_diag(M1_1, M1_2, M1_3))
+M1 = bcsr_fromdense(block_diag(M1_1, M1_2, M1_3))
+# M1 = jnp.array(block_diag(M1_1, M1_2, M1_3))
 
 # %%
 M1_smart_rowI = sparse_assemble_row_3d_vec(0, _M1, shapes_1forms, 3)
@@ -156,7 +159,7 @@ _M2 = jit(get_mass_matrix_lazy_2(basis2, x_q, w_q, F))
 M2_1 = assemble(_M2, jnp.arange(N2_1), jnp.arange(N2_1))
 M2_2 = assemble(_M2, jnp.arange(N2_1, N2_1 + N2_2), jnp.arange(N2_1, N2_1 + N2_2))
 M2_3 = assemble(_M2, jnp.arange(N2_1 + N2_2, N2), jnp.arange(N2_1 + N2_2, N2))
-M2 = jax.experimental.sparse.bcsr_fromdense(jax.scipy.linalg.block_diag(M2_1, M2_2, M2_3))
+M2 = bcsr_fromdense(block_diag(M2_1, M2_2, M2_3))
 # %%
 _M3 = jit(get_mass_matrix_lazy_3(basis3, x_q, w_q, F))
 M3 = get_sparse_operator(_M3, jnp.arange(N3), jnp.arange(N3))
@@ -167,13 +170,13 @@ proj1 = get_l2_projection(basis1, x_q, w_q, N1)
 proj2 = get_l2_projection(basis2, x_q, w_q, N2)
 proj3 = get_l2_projection(basis3, x_q, w_q, N3)
 # %%
-B_hat = jax.experimental.sparse.linalg.spsolve(M2.data, M2.indices, M2.indptr, proj2(H_hopf_ref))
+B_hat = spsolve(M2.data, M2.indices, M2.indptr, proj2(H_hopf_ref))
 B_h = jit(get_u_h_vec(B_hat, basis2))
 
-H_hat = jax.experimental.sparse.linalg.spsolve(M1.data, M1.indices, M1.indptr, proj1(B_hopf_ref))
+H_hat = spsolve(M1.data, M1.indices, M1.indptr, proj1(B_hopf_ref))
 H_h = jit(get_u_h_vec(H_hat, basis1))
 # %%
-e_hat = jax.experimental.sparse.linalg.spsolve(M0.data, M0.indices, M0.indptr, proj0(e_ref))
+e_hat = spsolve(M0.data, M0.indices, M0.indptr, proj0(e_ref))
 e_h = jit(get_u_h(e_hat, basis0))
 # %%
 nx = 8
