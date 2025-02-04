@@ -7,16 +7,24 @@ from functools import partial
 from mhd_equilibria.bases import *
 from mhd_equilibria.projections import *
 from mhd_equilibria.pullbacks import *
-from mhd_equilibria.operators import curl
+from mhd_equilibria.operators import curl, div
 from mhd_equilibria.vector_bases import *
 
 __all__ = [
     "get_mass_matrix_lazy",
-    "get_mass_matrix_lazy_0",
+    "get_mass_matrix_lazy_00",
     "get_mass_matrix_lazy_12",
-    "get_mass_matrix_lazy_1",
-    "get_mass_matrix_lazy_2",
-    "get_mass_matrix_lazy_3",
+    "get_mass_matrix_lazy_11",
+    "get_mass_matrix_lazy_22",
+    "get_mass_matrix_lazy_33",
+    "get_mass_matrix_lazy_12",
+    "get_mass_matrix_lazy_03",
+    "get_gradient_matrix_lazy_01",
+    "get_curl_matrix_lazy_12",
+    "get_divergence_matrix_lazy_23",
+    "get_gradient_matrix_lazy_02",
+    "get_curl_matrix_lazy_11",
+    "get_divergence_matrix_lazy_20",
     "get_curl_operator",
     "get_curl_matrix_lazy",
     "get_1_form_trace_lazy",
@@ -29,8 +37,14 @@ __all__ = [
     "sparse_assemble_row_3d_vec",
     "sparse_assemble_3d_vec",
 ]
+### 
 # Lazy functions for assembly
+###
 
+### Mass matrices
+"""
+    Baseline lazy mass matrix function: M_ij = ∫ ϕ_i ϕ_j dξ
+"""
 def get_mass_matrix_lazy(basis_fn, x_q, w_q, F):
     def get_basis(k):
         return lambda x: basis_fn(x, k)
@@ -38,7 +52,11 @@ def get_mass_matrix_lazy(basis_fn, x_q, w_q, F):
         return l2_product(get_basis(i), get_basis(j), x_q, w_q)
     return M_ij
 
-def get_mass_matrix_lazy_0(basis_fn, x_q, w_q, F):
+"""
+    Lazy mass matrix function for two zero-forms: 
+    M_ij = ∫ ϕ_i ϕ_j det DF dξ
+"""
+def get_mass_matrix_lazy_00(basis_fn, x_q, w_q, F):
     DF = jacfwd(F)
     def f(k):
         return lambda x: basis_fn(x, k)
@@ -48,6 +66,53 @@ def get_mass_matrix_lazy_0(basis_fn, x_q, w_q, F):
         return l2_product(f(i), g(j), x_q, w_q)
     return M_ij
 
+"""
+    Lazy mass matrix function for two one-forms: 
+    M_ij = ∫ (DF.-T ϕ_i).T DF.-T ϕ_j det DF dξ
+"""
+def get_mass_matrix_lazy_11(basis_fn, x_q, w_q, F):
+    DF = jacfwd(F)
+    def A(k):
+        return lambda x: inv33(DF(x)).T @ basis_fn(x, k)
+    def E(k):
+        return lambda x: inv33(DF(x)).T @ basis_fn(x, k) * jnp.linalg.det(DF(x))
+    def M_ij(i, j):
+        return l2_product(A(i), E(j), x_q, w_q)
+    return M_ij
+
+"""
+    Lazy mass matrix function for two two-forms: 
+    M_ij = ∫ (DF / det DF ϕ_i).T DF / det DF ϕ_j det DF dξ
+"""
+def get_mass_matrix_lazy_22(basis_fn, x_q, w_q, F):
+    DF = jacfwd(F)
+    def B(k):
+        return lambda x: DF(x) @ basis_fn(x, k)
+    def S(k):
+        return lambda x: DF(x) @ basis_fn(x, k) / jnp.linalg.det(DF(x))
+    def M_ij(i, j):
+        return l2_product(B(i), S(j), x_q, w_q)
+    return M_ij
+
+"""
+    Lazy mass matrix function for two three-forms: 
+    M_ij = ∫ ϕ_i / det DF ϕ_j / det DF det DF dξ
+"""
+def get_mass_matrix_lazy_33(basis_fn, x_q, w_q, F):
+    DF = jacfwd(F)
+    def f(k):
+        return lambda x: basis_fn(x, k)
+    def g(k):
+        return lambda x: basis_fn(x, k) / jnp.linalg.det(DF(x))
+    def M_ij(i, j):
+        return l2_product(f(i), g(j), x_q, w_q)
+    return M_ij
+
+### Projection Operators
+"""
+    Lazy mass matrix function for a one- and a two-form: 
+    M_ij = ∫ (DF.-T ϕ_i).T DF / det DF ϕ_j det DF dξ = ∫ ϕ_i.T ϕ_j dξ
+"""
 def get_mass_matrix_lazy_12(basis_fn1, basis_fn2, x_q, w_q, F):
     DF = jacfwd(F)
     def A(k):
@@ -58,35 +123,106 @@ def get_mass_matrix_lazy_12(basis_fn1, basis_fn2, x_q, w_q, F):
         return l2_product(A(i), E(j), x_q, w_q)
     return M_ij
 
-def get_mass_matrix_lazy_1(basis_fn, x_q, w_q, F):
+"""
+    Lazy mass matrix function for a zero- and a three-form: 
+    M_ij = ∫ ϕ_i / det DF ϕ_j det DF dξ = ∫ ϕ_i ϕ_j dξ
+"""
+def get_mass_matrix_lazy_03(basis_fn0, basis_fn3, x_q, w_q, F):
+    return get_mass_matrix_lazy_12(basis_fn0, basis_fn3, x_q, w_q, F)
+
+###
+# Differential operators
+###
+
+### Weak forms
+
+"""
+    Lazy gradient matrix function for a zero- and a one-form: 
+    M_ij = ∫ (DF.-T ∇ϕ_i).T DF.-T ϕ_j det DF dξ
+"""
+def get_gradient_matrix_lazy_01(basis_fn0, basis_fn1, x_q, w_q, F):
     DF = jacfwd(F)
     def A(k):
-        return lambda x: inv33(DF(x)).T @ basis_fn(x, k)
+        return lambda x: inv33(DF(x)).T @ grad(basis_fn0)(x, k)
     def E(k):
-        return lambda x: inv33(DF(x)).T @ basis_fn(x, k) * jnp.linalg.det(DF(x))
+        return lambda x: inv33(DF(x)).T @ basis_fn1(x, k) * jnp.linalg.det(DF(x))
     def M_ij(i, j):
         return l2_product(A(i), E(j), x_q, w_q)
     return M_ij
 
-def get_mass_matrix_lazy_2(basis_fn, x_q, w_q, F):
+"""
+    Lazy curl matrix function for a one- and a two-form: 
+    M_ij = ∫ (DF ∇ ⨉ ϕ_i).T DF ϕ_j / det DF dξ
+"""
+def get_curl_matrix_lazy_12(basis_fn1, basis_fn2, x_q, w_q, F):
     DF = jacfwd(F)
     def B(k):
-        return lambda x: DF(x) @ basis_fn(x, k)
+        phi = lambda x: basis_fn1(x, k)
+        return lambda x: DF(x) @ curl(phi)(x)
     def S(k):
-        return lambda x: DF(x) @ basis_fn(x, k) / jnp.linalg.det(DF(x))
+        return lambda x: DF(x) @ basis_fn2(x, k) / jnp.linalg.det(DF(x))
     def M_ij(i, j):
         return l2_product(B(i), S(j), x_q, w_q)
     return M_ij
 
-def get_mass_matrix_lazy_3(basis_fn, x_q, w_q, F):
+"""
+    Lazy divergence matrix function for a two- and a three-form: 
+    M_ij = ∫ ∇.ϕ_i ϕ_j / det DF dξ
+"""
+def get_divergence_matrix_lazy_23(basis_fn2, basis_fn3, x_q, w_q, F):
     DF = jacfwd(F)
     def f(k):
-        return lambda x: basis_fn(x, k)
+        phi = lambda x: basis_fn2(x, k)
+        return div(phi)
     def g(k):
-        return lambda x: basis_fn(x, k) / jnp.linalg.det(DF(x))
+        return lambda x: basis_fn3(x, k) / jnp.linalg.det(DF(x))
     def M_ij(i, j):
         return l2_product(f(i), g(j), x_q, w_q)
     return M_ij
+
+### Strong forms
+
+"""
+    Lazy gradient matrix function for a zero- and a two-form: 
+    M_ij = ∫ ∇ϕ_i.T ϕ_j dξ
+"""
+def get_gradient_matrix_lazy_02(basis_fn0, basis_fn2, x_q, w_q, F):
+    def A(k):
+        return lambda x: grad(basis_fn0)(x, k)
+    def E(k):
+        return lambda x: basis_fn2(x, k)
+    def M_ij(i, j):
+        return l2_product(A(i), E(j), x_q, w_q)
+    return M_ij
+
+"""
+    Lazy curl matrix function for a one- and a one-form: 
+    M_ij = ∫ (∇ ⨉ ϕ_i).T ϕ_j dξ
+"""
+def get_curl_matrix_lazy_11(basis_fn1, x_q, w_q, F):
+    def B(k):
+        phi = lambda x: basis_fn1(x, k)
+        return curl(phi)
+    def S(k):
+        return lambda x: basis_fn1(x, k)
+    def M_ij(i, j):
+        return l2_product(B(i), S(j), x_q, w_q)
+    return M_ij
+
+"""
+    Lazy divergence matrix function for a two- and a zero-form: 
+    M_ij = ∫ ∇.ϕ_i ϕ_j / det DF dξ
+"""
+def get_divergence_matrix_lazy_20(basis_fn2, basis_fn0, x_q, w_q, F):
+    def f(k):
+        phi = lambda x: basis_fn2(x, k)
+        return div(phi)
+    def g(k):
+        return lambda x: basis_fn0(x, k)
+    def M_ij(i, j):
+        return l2_product(f(i), g(j), x_q, w_q)
+    return M_ij
+
 
 # TODO
 def get_curl_operator(one_form_bases, two_form_bases, x_q, w_q, ns):
@@ -208,3 +344,17 @@ def sparse_assemble_3d_vec(_M, shapes, p):
     N = N1 + N2 + N3
     # return vmap(sparse_assemble_row_3d_vec, (0, None, None, None))(jnp.arange(N), _M, shapes, p)
     return jnp.array([sparse_assemble_row_3d_vec(i, _M, shapes, p) for i in jnp.arange(N) ])
+
+# def piecewise_assemble(f, ns, ms, split):
+#     n = len(ns)
+#     m = len(ms)
+#     _ns = jnp.split(ns, [(n * i)//split for i in range(1, split)])
+#     _ms = jnp.split(ms, [(m * i)//split for i in range(1, split)])
+#     # subarrays = [ [ assemble(f, _ns[i], _ms[j]) for j in range(3) ] for i in range(3) ]
+#     subarrays = []
+#     for i in range(split):
+#         row = []
+#         for j in range(split):
+#             row.append(assemble(f, _ns[i], _ms[j]))
+#         subarrays.append(row)
+#     return jnp.block(subarrays)

@@ -42,7 +42,7 @@ x_q, w_q = quadrature_grid(
 
 # %%
 # Mass matrices
-_M0 = jit(get_mass_matrix_lazy_0(basis0, x_q, w_q, F))
+_M0 = jit(get_mass_matrix_lazy_00(basis0, x_q, w_q, F))
 assemble_M0 = jit(lambda : assemble(_M0, jnp.arange(N0), jnp.arange(N0)))
 sparse_assemble_M0 = jit(lambda: sparse_assemble_3d(_M0, ns, max(ps)))
 vmap_assemble_M0 = jit(lambda: assemble_full_vmap(_M0, jnp.arange(N0), jnp.arange(N0)))

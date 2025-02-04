@@ -92,7 +92,7 @@ _x_hat = jnp.array(jnp.meshgrid(_R_hat, _Z_hat, _phi_hat)) # shape 3, n_x, n_x, 
 _x_hat = _x_hat.transpose(1, 2, 3, 0).reshape((nx)**2, 3)
         
 proj0 = get_l2_projection(basis0, x_q, w_q, N0)
-_M0 = jit(get_mass_matrix_lazy_0(basis0, x_q, w_q, F))
+_M0 = jit(get_mass_matrix_lazy_00(basis0, x_q, w_q, F))
 # %%
 M0 = assemble(_M0, jnp.arange(N0), jnp.arange(N0))
 lambda0_hat = jnp.linalg.solve(M0, proj0(pullback_3form(lambda_analytic, F)))

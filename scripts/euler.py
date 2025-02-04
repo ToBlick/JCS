@@ -124,17 +124,17 @@ proj2 = get_l2_projection(basis2, x_q, w_q, N2)
 proj3 = get_l2_projection(basis3, x_q, w_q, N3)
 
 # %%
-_M0 = jit(get_mass_matrix_lazy_0(basis0, x_q, w_q, F))
+_M0 = jit(get_mass_matrix_lazy_00(basis0, x_q, w_q, F))
 M0 = get_sparse_operator(_M0, jnp.arange(N0), jnp.arange(N0))
 
-_M1 = jit(get_mass_matrix_lazy_1(basis1, x_q, w_q, F))
+_M1 = jit(get_mass_matrix_lazy_11(basis1, x_q, w_q, F))
 M1_1 = assemble(_M1, jnp.arange(N1_1), jnp.arange(N1_1))
 M1_2 = assemble(_M1, jnp.arange(N1_1, N1_1+N1_2), jnp.arange(N1_1, N1_1+N1_2))
 M1_3 = assemble(_M1, jnp.arange(N1_1+N1_2, N1), jnp.arange(N1_1+N1_2, N1))
 M1 = jax.experimental.sparse.bcsr_fromdense(jax.scipy.linalg.block_diag(M1_1, M1_2, M1_3))
 # %%
 
-_M2 = jit(get_mass_matrix_lazy_2(basis2, x_q, w_q, F))
+_M2 = jit(get_mass_matrix_lazy_22(basis2, x_q, w_q, F))
 M2_1 = assemble(_M2, jnp.arange(N2_1), jnp.arange(N2_1))
 M2_2 = assemble(_M2, jnp.arange(N2_1, N2_1 + N2_2), jnp.arange(N2_1, N2_1 + N2_2))
 M2_3 = assemble(_M2, jnp.arange(N2_1 + N2_2, N2), jnp.arange(N2_1 + N2_2, N2))

@@ -134,12 +134,12 @@ for n in ns:
 
         start = time.time()
         proj0 = get_l2_projection(basis0, x_q, w_q, N0)
-        _M0 = jit(get_mass_matrix_lazy_0(basis0, x_q, w_q, F))
+        _M0 = jit(get_mass_matrix_lazy_00(basis0, x_q, w_q, F))
         # M0 = sparse_assemble_3d(_M0, basis0_shape, 3)
         # M0 = jax.experimental.sparse.bcsr_fromdense(M0)
         
         proj0_0 = get_l2_projection(basis0_0, x_q, w_q, N0_0)
-        _M0_0 = jit(get_mass_matrix_lazy_0(basis0_0, x_q, w_q, F))
+        _M0_0 = jit(get_mass_matrix_lazy_00(basis0_0, x_q, w_q, F))
         # M0_0 = sparse_assemble_3d(_M0_0, basis0_0_shape, 3)
         # M0_0 = jax.experimental.sparse.bcsr_fromdense(M0_0)
         start = time.time()

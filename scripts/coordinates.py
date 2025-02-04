@@ -287,7 +287,7 @@ plt.ylabel('Z')
 plt.axis('equal')
 
 # %%
-M0 = get_mass_matrix_lazy_0(basis_fn_0forms, x_q, w_q, F)
+M0 = get_mass_matrix_lazy_00(basis_fn_0forms, x_q, w_q, F)
 M0_assembled = vmap(vmap(M0, (0, None)), (None, 0))(jnp.arange(N), jnp.arange(N))
 M0 = jnp.where(jnp.abs(M0_assembled) > 1e-16, M0_assembled, 0.0)
 print(jnp.linalg.cond(M0_assembled))
@@ -298,7 +298,7 @@ plt.imshow(M0_assembled)
 plt.colorbar()
 
 # %%
-M0_hat = get_mass_matrix_lazy_0(basis_fn_0forms, x_q, w_q, lambda x: x)
+M0_hat = get_mass_matrix_lazy_00(basis_fn_0forms, x_q, w_q, lambda x: x)
 M0_hat_assembled = vmap(vmap(M0_hat, (0, None)), (None, 0))(jnp.arange(N), jnp.arange(N))
 𝚷0 = get_l2_projection(basis_fn_0forms, x_q, w_q, N)
 f_hat_dofs = 𝚷0(pullback_0form(f, F))
@@ -331,7 +331,7 @@ M1_ref = get_mass_matrix_lazy(basis_fn_1forms, x_q, w_q, F)
 M1_ref_assembled = vmap(vmap(M1_ref, (0, None)), (None, 0))(jnp.arange(N1), jnp.arange(N1))
 
 # %%
-M1 = get_mass_matrix_lazy_1(basis_fn_1forms, x_q, w_q, F)
+M1 = get_mass_matrix_lazy_11(basis_fn_1forms, x_q, w_q, F)
 # assemble
 Ns = jnp.arange(N1)
 M1_assembled = vmap(vmap(M1, (0, None)), (None, 0))(Ns, Ns)

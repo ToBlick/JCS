@@ -49,7 +49,7 @@ class AssemblyTests(unittest.TestCase):
                     get_quadrature_periodic(16)(0,1))
 
         # Mass matrices
-        _M0 = jit(get_mass_matrix_lazy_0(basis0, x_q, w_q, F))
+        _M0 = jit(get_mass_matrix_lazy_00(basis0, x_q, w_q, F))
         assemble_M0 = jit(lambda : assemble(_M0, jnp.arange(N0), jnp.arange(N0)))
         # sparse_assemble_M0 = jit(lambda: sparse_assemble_3d(_M0, shape0, 3))
         vmap_assemble_M0 = jit(lambda: assemble_full_vmap(_M0, jnp.arange(N0), jnp.arange(N0)))
@@ -97,7 +97,7 @@ class AssemblyTests(unittest.TestCase):
         npt.assert_allclose(M0_a @ v, M0_v @ v, atol = 1e-15)
         
         # Mass matrices
-        _M1 = jit(get_mass_matrix_lazy_1(basis1, x_q, w_q, F))
+        _M1 = jit(get_mass_matrix_lazy_11(basis1, x_q, w_q, F))
         assemble_M1 = jit(lambda : assemble(_M1, jnp.arange(N1), jnp.arange(N1)))
         # sparse_assemble_M1 = jit(lambda: sparse_assemble_3d_vec(_M1, shapes1, 3))
         vmap_assemble_M1 = jit(lambda: assemble_full_vmap(_M1, jnp.arange(N1), jnp.arange(N1)))
