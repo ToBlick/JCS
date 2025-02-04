@@ -152,7 +152,7 @@ def get_zero_form_basis(ns, ps, types, boundary):
     if types[2] == 'fourier':
         basis_ζ = get_trig_fn(n_ζ, *Omega[2])
     else:
-        if (boundary[1] == 'dirichlet'):
+        if (boundary[2] == 'dirichlet'):
             _basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
             def basis_ζ(x, i):
                 return _basis_ζ(x, i+1)
@@ -180,7 +180,7 @@ def get_one_form_basis(ns, ps, types, boundary):
     Returns:
     tuple: A tuple containing:
         - basis1: The generated basis function for one-forms. Takes two arguments (x, I) and returns a 3D vector.
-        - shapes1: A 2D array where each row represents the shape of the basis functions for a component of the one-form. If this is all splines, it will be ( (n_r-1, n_θ, n_ζ), (n_r, n_θ-1, n_ζ), (n_r, n_θ, n_ζ-1) ). This is different for Fourier bases: there is "reduction in size" for Fourier bases.
+        - shapes1: A 2D array where each row represents the shape of the basis functions for a component of the one-form. If this is all splines, it will be ( (n_r-1, n_θ, n_ζ), (n_r, n_θ-1, n_ζ), (n_r, n_θ, n_ζ-1) ). This is different for Fourier bases: there is no "reduction in size" for Fourier bases.
         - N1: The total number of basis functions, for example (n_r-1) * n_θ * n_ζ + n_r * (n_θ-1) * n_ζ + n_r * n_θ * (n_ζ-1).
     """
     n_r, n_θ, n_ζ = ns
@@ -200,8 +200,12 @@ def get_one_form_basis(ns, ps, types, boundary):
             n_r = n_r - 2
         else:
             basis_r = get_spline(n_r, p_r, types[0])
-        basis_dr = (get_spline(n_r - 1, p_r - 1, types[0]))
-        n_dr = n_r - 1
+        if types[0] == 'clamped':
+            basis_dr = get_spline(n_r - 1, p_r - 1, types[0])
+            n_dr = n_r - 1
+        else: # periodic
+            basis_dr = get_spline(n_r, p_r - 1, types[0])
+            n_dr = n_r
     
     if types[1] == 'fourier':
         basis_θ = get_trig_fn(n_θ, *Omega[1])
@@ -215,23 +219,31 @@ def get_one_form_basis(ns, ps, types, boundary):
             n_θ = n_θ - 2
         else:
             basis_θ = (get_spline(n_θ, p_θ, types[1]))
-        basis_dθ = (get_spline(n_θ - 1, p_θ - 1, types[1]))
-        n_dθ = n_θ - 1
+        if types[1] == 'clamped':
+            basis_dθ = get_spline(n_θ - 1, p_θ - 1, types[1])
+            n_dθ = n_θ - 1
+        else: # periodic
+            basis_dθ = get_spline(n_θ, p_θ - 1, types[1])
+            n_dθ = n_θ
         
     if types[2] == 'fourier':
         basis_ζ = get_trig_fn(n_ζ, *Omega[2])
         basis_dζ = basis_ζ
         n_dζ = n_ζ
     else:
-        if (boundary[1] == 'dirichlet'):
+        if (boundary[2] == 'dirichlet'):
             _basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
             def basis_ζ(x, i):
                 return _basis_ζ(x, i+1)
             n_ζ = n_ζ - 2
         else:
             basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
-        basis_dζ = (get_spline(n_ζ - 1, p_ζ - 1, types[2]))
-        n_dζ = n_ζ - 1
+        if types[2] == 'clamped':
+            basis_dζ = get_spline(n_ζ - 1, p_ζ - 1, types[2])
+            n_dζ = n_ζ - 1
+        else: # periodic
+            basis_dζ = get_spline(n_ζ, p_ζ - 1, types[2])
+            n_dζ = n_ζ
         
     shapes1 = jnp.array([ [n_dr, n_θ, n_ζ],
                           [n_r, n_dθ, n_ζ],
@@ -264,8 +276,12 @@ def get_two_form_basis(ns, ps, types, boundary):
             n_r = n_r - 2
         else:
             basis_r = get_spline(n_r, p_r, types[0])
-        basis_dr = (get_spline(n_r - 1, p_r - 1, types[0]))
-        n_dr = n_r - 1
+        if types[0] == 'clamped':
+            basis_dr = get_spline(n_r - 1, p_r - 1, types[0])
+            n_dr = n_r - 1
+        else: # periodic
+            basis_dr = get_spline(n_r, p_r - 1, types[0])
+            n_dr = n_r
     
     if types[1] == 'fourier':
         basis_θ = get_trig_fn(n_θ, *Omega[1])
@@ -279,23 +295,31 @@ def get_two_form_basis(ns, ps, types, boundary):
             n_θ = n_θ - 2
         else:
             basis_θ = (get_spline(n_θ, p_θ, types[1]))
-        basis_dθ = (get_spline(n_θ - 1, p_θ - 1, types[1]))
-        n_dθ = n_θ - 1
+        if types[1] == 'clamped':
+            basis_dθ = get_spline(n_θ - 1, p_θ - 1, types[1])
+            n_dθ = n_θ - 1
+        else: # periodic
+            basis_dθ = get_spline(n_θ, p_θ - 1, types[1])
+            n_dθ = n_θ
         
     if types[2] == 'fourier':
         basis_ζ = get_trig_fn(n_ζ, *Omega[2])
         basis_dζ = basis_ζ
         n_dζ = n_ζ
     else:
-        if (boundary[1] == 'dirichlet'):
+        if (boundary[2] == 'dirichlet'):
             _basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
             def basis_ζ(x, i):
                 return _basis_ζ(x, i+1)
             n_ζ = n_ζ - 2
         else:
             basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
-        basis_dζ = (get_spline(n_ζ - 1, p_ζ - 1, types[2]))
-        n_dζ = n_ζ - 1
+        if types[2] == 'clamped':
+            basis_dζ = get_spline(n_ζ - 1, p_ζ - 1, types[2])
+            n_dζ = n_ζ - 1
+        else: # periodic
+            basis_dζ = get_spline(n_ζ, p_ζ - 1, types[2])
+            n_dζ = n_ζ
         
     shapes = jnp.array([ [n_r, n_dθ, n_dζ],
                          [n_dr, n_θ, n_dζ],
@@ -322,8 +346,12 @@ def get_three_form_basis(ns, ps, types, boundary):
         n_dr = n_r
     else:
         basis_r = (get_spline(n_r, p_r, types[0]))
-        basis_dr = (get_spline(n_r - 1, p_r - 1, types[0]))
-        n_dr = n_r - 1
+        if types[0] == 'clamped':
+            basis_dr = get_spline(n_r - 1, p_r - 1, types[0])
+            n_dr = n_r - 1
+        else: # periodic
+            basis_dr = get_spline(n_r, p_r - 1, types[0])
+            n_dr = n_r
     
     if types[1] == 'fourier':
         basis_θ = get_trig_fn(n_θ, *Omega[1])
@@ -331,8 +359,12 @@ def get_three_form_basis(ns, ps, types, boundary):
         n_dθ = n_θ
     else:
         basis_θ = (get_spline(n_θ, p_θ, types[1]))
-        basis_dθ = (get_spline(n_θ - 1, p_θ - 1, types[1]))
-        n_dθ = n_θ - 1
+        if types[1] == 'clamped':
+            basis_dθ = get_spline(n_θ - 1, p_θ - 1, types[1])
+            n_dθ = n_θ - 1
+        else: # periodic
+            basis_dθ = get_spline(n_θ, p_θ - 1, types[1])
+            n_dθ = n_θ
         
     if types[2] == 'fourier':
         basis_ζ = get_trig_fn(n_ζ, *Omega[2])
@@ -340,13 +372,15 @@ def get_three_form_basis(ns, ps, types, boundary):
         n_dζ = n_ζ
     else:
         basis_ζ = (get_spline(n_ζ, p_ζ, types[2]))
-        basis_dζ = (get_spline(n_ζ - 1, p_ζ - 1, types[2]))
-        n_dζ = n_ζ - 1
+        if types[2] == 'clamped':
+            basis_dζ = get_spline(n_ζ - 1, p_ζ - 1, types[2])
+            n_dζ = n_ζ - 1
+        else: # periodic
+            basis_dζ = get_spline(n_ζ, p_ζ - 1, types[2])
+            n_dζ = n_ζ
 
     shape = jnp.array([n_dr, n_dθ, n_dζ])
     
-    basis = get_tensor_basis_fn(
-                    (basis_dr, basis_dθ, basis_dζ), 
-                    shape)
+    basis = get_tensor_basis_fn((basis_dr, basis_dθ, basis_dζ), shape)
     N = jnp.prod(shape)
     return basis, shape, N
