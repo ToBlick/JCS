@@ -116,7 +116,7 @@ N3 = (n_r - 1) * (n_θ - 1) * (n_ζ - 1)
 
 # %%
 # Mass matrices
-_M0 = jit(get_mass_matrix_lazy_0(basis0, x_q, w_q, F))
+_M0 = jit(get_mass_matrix_lazy_00(basis0, x_q, w_q, F))
 import time
 start = time.time()
 M0 = assemble(_M0, jnp.arange(N0), jnp.arange(N0))
@@ -140,7 +140,7 @@ shapes_1forms = ( (n_r - 1, n_θ, n_ζ),
                   (n_r, n_θ, n_ζ - 1) )
 
 # %%
-_M1 = jit(get_mass_matrix_lazy_1(basis1, x_q, w_q, F))
+_M1 = jit(get_mass_matrix_lazy_11(basis1, x_q, w_q, F))
 M1_1 = assemble(_M1, jnp.arange(N1_1), jnp.arange(N1_1))
 M1_2 = assemble(_M1, jnp.arange(N1_1, N1_1+N1_2), jnp.arange(N1_1, N1_1+N1_2))
 M1_3 = assemble(_M1, jnp.arange(N1_1+N1_2, N1), jnp.arange(N1_1+N1_2, N1))
@@ -155,13 +155,13 @@ jnp.linalg.norm(M1[0] - M1_smart_rowI)
 # %%
 # M1_smart = sparse_assemble_3d_vec(_M1, shapes_1forms, 3)
 # %%
-_M2 = jit(get_mass_matrix_lazy_2(basis2, x_q, w_q, F))
+_M2 = jit(get_mass_matrix_lazy_22(basis2, x_q, w_q, F))
 M2_1 = assemble(_M2, jnp.arange(N2_1), jnp.arange(N2_1))
 M2_2 = assemble(_M2, jnp.arange(N2_1, N2_1 + N2_2), jnp.arange(N2_1, N2_1 + N2_2))
 M2_3 = assemble(_M2, jnp.arange(N2_1 + N2_2, N2), jnp.arange(N2_1 + N2_2, N2))
 M2 = bcsr_fromdense(block_diag(M2_1, M2_2, M2_3))
 # %%
-_M3 = jit(get_mass_matrix_lazy_3(basis3, x_q, w_q, F))
+_M3 = jit(get_mass_matrix_lazy_33(basis3, x_q, w_q, F))
 M3 = get_sparse_operator(_M3, jnp.arange(N3), jnp.arange(N3))
 # %%
 # Projections
