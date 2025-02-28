@@ -1,6 +1,6 @@
 # %%
 import jax
-from jax import jit
+from jax import jit, vmap
 import jax.numpy as jnp
 import jax.experimental.sparse
 from mhd_equilibria.bases import *
@@ -42,10 +42,12 @@ x_q, w_q = quadrature_grid(
 
 # %%
 # Mass matrices
-_M0 = jit(get_mass_matrix_lazy_00(basis0, x_q, w_q, F))
-assemble_M0 = jit(lambda : assemble(_M0, jnp.arange(N0), jnp.arange(N0)))
-sparse_assemble_M0 = jit(lambda: sparse_assemble_3d(_M0, ns, max(ps)))
-vmap_assemble_M0 = jit(lambda: assemble_full_vmap(_M0, jnp.arange(N0), jnp.arange(N0)))
+# basis0 = jit(basis0)
+_M0 = (get_mass_matrix_lazy_00(basis0, x_q, w_q, F))
+
+assemble_M0 = (lambda : assemble(_M0, jnp.arange(N0), jnp.arange(N0)))
+sparse_assemble_M0 = (lambda: sparse_assemble_3d(_M0, ns, max(ps)))
+vmap_assemble_M0 = (lambda: assemble_full_vmap(_M0, jnp.arange(N0), jnp.arange(N0)))
 # %%
 start = time.time()
 M0a = assemble_M0()
@@ -59,17 +61,17 @@ for _ in range(3):
 end = time.time()
 print("Assemble: " , (end - start)/3)
 # %%
-start = time.time()
-M0s = sparse_assemble_M0()
-M0s[0,0]
-end = time.time()
-print("Sparse assemble compilation: " , end - start)
-start = time.time()
-for _ in range(3):
-    M0 = sparse_assemble_M0()
-    M0[0,0]
-end = time.time()
-print("Sparse assemble: " , (end - start)/3)
+# start = time.time()
+# M0s = sparse_assemble_M0()
+# M0s[0,0]
+# end = time.time()
+# print("Sparse assemble compilation: " , end - start)
+# start = time.time()
+# for _ in range(3):
+#     M0 = sparse_assemble_M0()
+#     M0[0,0]
+# end = time.time()
+# print("Sparse assemble: " , (end - start)/3)
 # %%
 start = time.time()
 M0v = vmap_assemble_M0()

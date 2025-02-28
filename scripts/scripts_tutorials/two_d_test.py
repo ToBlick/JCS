@@ -49,6 +49,8 @@ for n in _ns:
         ### shape0 is an array with the number of x,y,z basis functions - in this case (n, n, 1)
         ### N0 is the total number of basis functions: n×n×1
         basis0, shape0, N0 = get_zero_form_basis(ns, ps, types, boundary)
+        ### we jit this guy
+        basis0 = jit(basis0)
 
         ### Quadrature grid: x_q is the quadrature points and w_q the weights
         ### There are a few options: 
@@ -63,12 +65,13 @@ for n in _ns:
 
         ### Lazy function for the stiffness matrix, returns its i,j-th element
         ### Note: This is not mixed FEM, just a standard stiffness matrix with natural homogeneous Neumann BCs
+        @jit
         def stiffness_matrix_lazy(i, j):
             return l2_product(lambda x: grad(basis0)(x, i), lambda x: grad(basis0)(x, j), x_q, w_q)
 
         ### Assemble the stiffness matrix: full_vmap means that all elements are computed at once
         K = assemble_full_vmap(stiffness_matrix_lazy, jnp.arange(N0), jnp.arange(N0))
-        # K = assemble(stiffness_matrix_lazy, jnp.arange(N0), jnp.arange(N0))
+        K = assemble(stiffness_matrix_lazy, jnp.arange(N0), jnp.arange(N0))
 
         ### function that given a function f returns a vector v: v_i = ∫ f(x) * basis_i(x) dx ∀i
         proj = get_l2_projection(basis0, x_q, w_q, N0)

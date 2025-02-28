@@ -36,7 +36,7 @@ def safe_divide(numerator, denominator):
             numerator / denominator)
 
 #TODO: the value of eps maybe should be a parameter
-@partial(jax.jit, static_argnums=(3,6))
+# @partial(jax.jit, static_argnums=(3,6))
 def spline(x, i, T, p, n, m, type):
     eps = 1e-16
     if p == 0:
