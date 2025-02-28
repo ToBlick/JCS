@@ -289,7 +289,7 @@ def get_2_form_trace_lazy(basis_fn, x_q, w_q, F):
 def assemble_full_vmap(M_lazy, ns, ms):
     return vmap(vmap(M_lazy, (None, 0)), (0, None))(ns, ms)
 
-# @partial(jit, static_argnums=(0,))
+@partial(jit, static_argnums=(0,))
 def assemble(f, ns, ms):
     def scan_fn(carry, j):
         row = vmap(f, (None, 0))(j, ms)

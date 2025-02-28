@@ -39,13 +39,14 @@ def Y(x):
     r, χ, z = x
     return a * r * jnp.sin(2 * jnp.pi * χ)
 
-ns = (8, 8, 1)
+ns = (4, 8, 1)
 ps = (3, 3, 1)
 
 ### Project this mapping to the zero form basis
 types = ('clamped', 'periodic', 'fourier')
 boundary = ('free', 'periodic', 'periodic')
 basis, shape, N = get_zero_form_basis(ns, ps, types, boundary)
+basis = jit(basis)
 
 # quadrature grid and projection
 x_q, w_q = quadrature_grid(
@@ -55,7 +56,7 @@ x_q, w_q = quadrature_grid(
 proj = get_l2_projection(basis, x_q, w_q, N)
 
 # %%
-M = assemble(get_mass_matrix_lazy_00(basis, x_q, w_q, lambda x: x), jnp.arange(N), jnp.arange(N))
+M = assemble_full_vmap(get_mass_matrix_lazy_00(basis, x_q, w_q, lambda x: x), jnp.arange(N), jnp.arange(N))
 
 # %%
 # isogeometric mapping
@@ -134,10 +135,11 @@ def get_polar_zero_form_basis(ns, ps):
 # %%
 
 basis0, shape0, N0 = get_polar_zero_form_basis(ns, ps)
+basis0 = jit(basis0)
 
 nx = 64
-_x1 = jnp.linspace(0, 1, nx)
-_x2 = jnp.linspace(0, 1, nx)
+_x1 = jnp.linspace(1e-6, 1, nx)
+_x2 = jnp.linspace(1e-6, 1, nx)
 _x3 = jnp.zeros(1)
 _x = jnp.array(jnp.meshgrid(_x1, _x2, _x3))
 _x = _x.transpose(1, 2, 3, 0).reshape(nx*nx*1, 3)
@@ -162,7 +164,7 @@ plt.xlabel('R')
 plt.ylabel('Y')
 
 # %%
-M = assemble(get_mass_matrix_lazy_00(basis0, x_q, w_q, F), jnp.arange(N0), jnp.arange(N0))
+M00 = assemble_full_vmap(get_mass_matrix_lazy_00(basis0, x_q, w_q, F), jnp.arange(N0), jnp.arange(N0))
 # %%
 β = 1/0.2
 
@@ -173,19 +175,19 @@ def f(x):
 def u(x):
     r, χ, ζ = x
     return ( (1-r)**2 * r**3 ) * jnp.sin(χ * 2 * jnp.pi)
-# %%
-plt.contourf(_x1, _x2, vmap(f)(_x).reshape(nx, nx))
-plt.scatter([0], [0], marker='+', c='w')
-plt.colorbar()
-plt.xlabel('R')
-plt.ylabel('Y')
+# # %%
+# plt.contourf(_x1, _x2, vmap(f)(_x).reshape(nx, nx))
+# plt.scatter([0], [0], marker='+', c='w')
+# plt.colorbar()
+# plt.xlabel('R')
+# plt.ylabel('Y')
 
-# %%
-plt.contourf(_y1, _y2, vmap(f)(_x).reshape(nx, nx))
-plt.scatter([0], [0], marker='+', c='w')
-plt.colorbar()
-plt.xlabel('R')
-plt.ylabel('Y')
+# # %%
+# plt.contourf(_y1, _y2, vmap(f)(_x).reshape(nx, nx))
+# plt.scatter([0], [0], marker='+', c='w')
+# plt.colorbar()
+# plt.xlabel('R')
+# plt.ylabel('Y')
 
 # %%
 ### f is given here in terms of x_hat
@@ -202,10 +204,10 @@ def get_0form_projection(basis_fn, x_q, w_q, n, F):
 
 proj = get_0form_projection(basis0, x_q, w_q, N0, F)
 # %%
-f_hat = jnp.linalg.solve(M, proj(f))
+f_hat = jnp.linalg.solve(M00, proj(f))
 f_h = get_u_h(f_hat, basis0)
 
-one_hat = jnp.linalg.solve(M, proj(lambda x: 1.0))
+# one_hat = jnp.linalg.solve(M, proj(lambda x: 1.0))
 # %%
 plt.contourf(_y1, _y2, vmap(f_h)(_x).reshape(nx, nx))
 plt.scatter([0], [0], marker='+', c='w')
@@ -214,68 +216,300 @@ plt.xlabel('R')
 plt.ylabel('Y')
 
 # %%
-plt.contourf(_y1, _y2, vmap(get_u_h(one_hat, basis0))(_x).reshape(nx, nx))
-plt.scatter([0], [0], marker='+', c='w')
-plt.colorbar()
-plt.xlabel('R')
-plt.ylabel('Y')
+
+### one forms: two new basis functions
+nr, nχ, nζ = ns
+pr, pχ, pζ = ps
+basis_r = get_spline(nr, pr, 'clamped')
+basis_χ = get_spline(nχ, pχ, 'periodic')
+basis_ζ = get_trig_fn(nζ, 0, 1)
+
+basis_dr = get_spline(nr - 1, pr - 1, 'clamped')
+basis_dχ = get_spline(nχ, pχ - 1, 'periodic')
+basis_ζ = get_trig_fn(nζ, 0, 1)
+
+bases = (basis_r, basis_χ, basis_ζ)
+
+# ξ = jnp.array([[ξ00, ξ01], [ξ10, ξ11], [ξ20, ξ21]])
+
+grad_basis_0 = jit(grad(lambda x: basis0(x, 0)))
+grad_basis_1 = jit(grad(lambda x: basis0(x, 1)))
+grad_basis_2 = jit(grad(lambda x: basis0(x, 2)))
 
 # %%
-plt.plot(jnp.abs(vmap(f_h)(_x) - vmap(f)(_x)))
-# %%
-def get_stiffness_matrix_lazy_00(basis_fn, x_q, w_q, F):
-    DF = jacfwd(F)
-    def A(k):
-        return lambda x: inv33(DF(x)).T @ grad(basis_fn)(x, k)
-        # return lambda x: grad(basis_fn)(x, k)
-    def E(k):
-        return lambda x: inv33(DF(x)).T @ grad(basis_fn)(x, k) * jnp.linalg.det(DF(x))
-        # return lambda x: grad(basis_fn)(x, k)
-    def M_ij(i, j):
-        return l2_product(A(i), E(j), x_q, w_q)
-    return M_ij
+def pushfwd_1form(A, F):
+    def pushfwd(x):
+        return inv33(jax.jacfwd(F)(x)).T @ A(x)
+    return pushfwd
 
-K = assemble(get_stiffness_matrix_lazy_00(basis0, x_q, w_q, F), jnp.arange(N0), jnp.arange(N0))
-# %%
-K_fixed = K.at[-1,:].set(0)
-# %%
-f_hat_fixed = proj(f).at[-1].set(0)
-# f_hat_fixed = get_l2_projection(basis0, x_q, w_q, N0)(f).at[-1].set(0)
-# f_hat_fixed = f_hat.at[-1].set(0)
-# %%
-u_hat = jnp.linalg.solve(-K_fixed, f_hat_fixed)
-# %%
-def u_h(x):
-    r, χ, ζ = x
-    return get_u_h(u_hat, basis0)(x)
-# %%
+gb0_vals = vmap(pushfwd_1form(grad_basis_0, F))(_x)
+gb1_vals = vmap(pushfwd_1form(grad_basis_1, F))(_x)
+gb2_vals = vmap(pushfwd_1form(grad_basis_2, F))(_x)
 
-u_h_proj = get_u_h(jnp.linalg.solve(M, proj(u)), basis0)
+plt.quiver(_y1, _y2, 
+           gb0_vals[:,0].reshape(nx, nx), 
+           gb0_vals[:,1].reshape(nx, nx))
 
 # %%
-plt.contourf(_x1, _x2, vmap(u)(_x).reshape(nx, nx))
-plt.scatter([0], [0], marker='+', c='w')
-plt.colorbar()
-plt.xlabel('R')
-plt.ylabel('Y')
+plt.quiver(_y1, _y2, 
+           gb1_vals[:,0].reshape(nx, nx), 
+           gb1_vals[:,1].reshape(nx, nx))
 
 # %%
-plt.contourf(_x1, _x2, vmap(u_h_proj)(_x).reshape(nx, nx))
-plt.scatter([0], [0], marker='+', c='w')
-plt.colorbar()
-plt.xlabel('R')
-plt.ylabel('Y')
-# %%
-plt.contourf(_x1, _x2, vmap(u_h)(_x).reshape(nx, nx))
-plt.scatter([0], [0], marker='+', c='w')
-plt.colorbar()
-plt.xlabel('R')
-plt.ylabel('Y')
+plt.quiver(_y1, _y2, 
+           gb2_vals[:,0].reshape(nx, nx), 
+           gb2_vals[:,1].reshape(nx, nx))
 
 # %%
-jnp.sum(jnp.abs(vmap(u_h)(_x) - vmap(u_h_proj)(_x)))
+gb_vals = - (gb0_vals + gb1_vals + gb2_vals)
+plt.quiver(_y1, _y2,
+           gb_vals[:,0].reshape(nx, nx), 
+           gb_vals[:,1].reshape(nx, nx))
+
 # %%
-jnp.sum(jnp.abs(vmap(u)(_x) - vmap(u_h)(_x)))
+def get_polar_one_form_basis(ns, ps):
+    
+    nr, nχ, nζ = ns
+    pr, pχ, pζ = ps
+
+    basis_r = get_spline(nr, pr, 'clamped')
+    basis_χ = get_spline(nχ, pχ, 'periodic')
+    basis_ζ = get_trig_fn(nζ, 0, 1)
+    
+    basis_dr = get_spline(nr-1, pr-1, 'clamped')
+    basis_dχ = get_spline(nχ, pχ-1, 'periodic')
+    basis_dζ = get_trig_fn(nζ, 0, 1)
+    bases = (basis_r, basis_χ, basis_ζ)
+    nr, nχ, nζ = ns
+    
+    outer_shapes = jnp.array([ [nr-2, nχ, nζ],
+                                [nr-2, nχ, nζ],
+                                [nr-2, nχ, nζ] ])
+    
+    N = jnp.sum(jnp.prod(outer_shapes, axis=1)) + 3 * nζ
+
+    def polar_basis(x, I):        
+        def inner_basis(x, I):
+            # This part is identical to the 0-form basis and we just take the grad after
+            #TODO: This should be changed to an explicit implementation using lower order spline bases at some point
+            l, k = jnp.unravel_index(I, (3, nζ))
+            φ_r_i = vmap(basis_r, (None, 0))(x[0], jnp.arange(2))
+            φ_χ_j = vmap(basis_χ, (None, 0))(x[1], jnp.arange(nχ))
+            φ_ζ_k = basis_ζ(x[2], k)
+            return ((ξ @ φ_χ_j) @ φ_r_i)[l] * φ_ζ_k
+        
+        # now, build a standard tensor basis for the outer parts
+        def outer_basis_r(r,i):
+            return basis_r(r, i + 2)
+        def outer_basis_dr(r,i):
+            return basis_dr(r, i + 1)
+        
+        outer_basis_1 = get_tensor_basis_fn((outer_basis_dr, basis_χ, basis_ζ), outer_shapes[0])
+        outer_basis_2 = get_tensor_basis_fn((outer_basis_r, basis_dχ, basis_ζ), outer_shapes[1])
+        outer_basis_3 = get_tensor_basis_fn((outer_basis_r, basis_χ, basis_dζ), outer_shapes[2])
+        
+        _outer_basis = get_vector_basis_fn((outer_basis_1, outer_basis_2, outer_basis_3), jnp.prod(outer_shapes, axis=1))
+        
+        def outer_basis(x, I):
+            return _outer_basis(x, I - 3 * nζ)
+        
+        return jax.lax.cond(I < 3 * nζ, grad(inner_basis), outer_basis, x, I)
+    
+    return polar_basis, outer_shapes, N
+
 # %%
-jnp.sum(jnp.abs(vmap(u)(_x) - vmap(u_h_proj)(_x)))
+basis1, _, N1 = get_polar_one_form_basis(ns, ps)
+basis1 = jit(basis1)
+
+# %%
+plt.quiver(_x1, _x2, 
+           vmap(basis1, (0, None))(_x, 50)[:,0].reshape(nx, nx), 
+           vmap(basis1, (0, None))(_x, 50)[:,1].reshape(nx, nx))
+# # %%
+# basis_r = get_spline(nr, pr, 'clamped')
+# basis_dr = get_spline(nr-1, pr-1, 'clamped')
+
+# for i in range(nr):
+#     plt.plot(_x1, basis_r(_x1, i), c = 'k')
+# for i in range(nr-1):
+#     plt.plot(_x1, basis_dr(_x1, i), c = 'c')
+# %%
+def get_assembler(f):
+    def assemble(ns, ms):
+        def scan_fn(carry, j):
+            row = vmap(f, (None, 0))(j, ms)
+            return carry, row
+        _, M = jax.lax.scan(scan_fn, None, ns)
+        return M
+    return assemble
+
+# %%
+import time
+
+
+
+_m11 = get_mass_matrix_lazy_11(jit_basis1, x_q, w_q, F)
+jit_m11 = jit(_m11)
+jit_m11(0,0), _m11(0,0)
+
+start = time.time()
+M00 = assemble_full_vmap(_m11, jnp.arange(N0), jnp.arange(N0))
+end = time.time()
+print(end - start)
+
+_m11 = get_mass_matrix_lazy_11(jit_basis1, x_q, w_q, F)
+jit_m11 = jit(_m11)
+jit_m11(0,0), _m11(0,0)
+
+start = time.time()
+M00 = assemble_full_vmap(jit_m11, jnp.arange(N0), jnp.arange(N0))
+end = time.time()
+print(end - start)
+
+_m11 = get_mass_matrix_lazy_11(jit_basis1, x_q, w_q, F)
+jit_m11 = jit(_m11)
+jit_m11(0,0), _m11(0,0)
+
+start = time.time()
+M00 = jnp.array([ vmap(_m11, (0, None))(jnp.arange(N0), i) for i in range(N0)])
+end = time.time()
+print(end - start)
+
+_m11 = get_mass_matrix_lazy_11(jit_basis1, x_q, w_q, F)
+jit_m11 = jit(_m11)
+jit_m11(0,0), _m11(0,0)
+
+start = time.time()
+M00 = jnp.array([ vmap(jit_m11, (0, None))(jnp.arange(N0), i) for i in range(N0)])
+end = time.time()
+print(end - start)
+
+# %%
+import timeit, statistics
+n_rep = 100
+durations = timeit.Timer('vmap(vmap(basis0, (0, None)),(None, 0))(x_q, jnp.arange(N0))', globals=globals()).repeat(repeat=n_rep, number=1)
+print('0 form: ')
+jnp.array([statistics.mean(durations), statistics.stdev(durations), statistics.median(durations)])/nr/nx
+
+# %%
+durations = timeit.Timer('vmap(vmap(basis1, (0, None)),(None, 0))(x_q, jnp.arange(N1))', globals=globals()).repeat(repeat=n_rep, number=1)
+print('1 form: ')
+jnp.array([statistics.mean(durations), statistics.stdev(durations), statistics.median(durations)])/nr/nx
+
+# %%
+n_rep = 8
+durations = timeit.Timer('vmap(vmap(_m00, (0, None)),(None, 0))(jnp.arange(N0), jnp.arange(N0))', globals=globals()).repeat(repeat=n_rep, number=1)
+print('0 form vmap assembly: ')
+jnp.array([statistics.mean(durations), statistics.stdev(durations), statistics.median(durations)])/nr/nx
+
+# %%
+durations = timeit.Timer('vmap(vmap(jit_m00, (0, None)),(None, 0))(jnp.arange(N0), jnp.arange(N0))', globals=globals()).repeat(repeat=n_rep, number=1)
+print('0 form vmap assembly, jitted: ')
+jnp.array([statistics.mean(durations), statistics.stdev(durations), statistics.median(durations)])/nr/nx
+
+# %%
+durations = timeit.Timer('assemble(_m00, jnp.arange(N0), jnp.arange(N0))', globals=globals()).repeat(repeat=n_rep, number=1)
+print('0 form assembly: ')
+jnp.array([statistics.mean(durations), statistics.stdev(durations), statistics.median(durations)])/nr/nx
+# %%
+durations = timeit.Timer('assemble(jit_m00, jnp.arange(N0), jnp.arange(N0))', globals=globals()).repeat(repeat=n_rep, number=1)
+print('0 form assembly, jitted: ')
+jnp.array([statistics.mean(durations), statistics.stdev(durations), statistics.median(durations)])/nr/nx
+# %%
+_m11 = get_mass_matrix_lazy_11(basis1, x_q, w_q, F)
+jit_m11 = jit(_m11)
+_m11(0,0)
+
+# %%
+durations = timeit.Timer('vmap(vmap(_m11, (0, None)),(None, 0))(jnp.arange(N1), jnp.arange(N1))', globals=globals()).repeat(repeat=n_rep, number=1)
+print('1 form vmap assembly: ')
+jnp.array([statistics.mean(durations), statistics.stdev(durations), statistics.median(durations)])/nr/nx
+
+# %%
+durations = timeit.Timer('vmap(vmap(jit_m11, (0, None)),(None, 0))(jnp.arange(N1), jnp.arange(N1))', globals=globals()).repeat(repeat=n_rep, number=1)
+print('1 form vmap assembly, jitted: ')
+jnp.array([statistics.mean(durations), statistics.stdev(durations), statistics.median(durations)])/nr/nx
+
+# %%
+durations = timeit.Timer('assemble(jit_m11, jnp.arange(N1), jnp.arange(N1))', globals=globals()).repeat(repeat=n_rep, number=1)
+print('1 form vmap assembly: ')
+jnp.array([statistics.mean(durations), statistics.stdev(durations), statistics.median(durations)])/nr/nx
+
+# %%
+durations = timeit.Timer('assemble(jit_m11, jnp.arange(N1), jnp.arange(N1))', globals=globals()).repeat(repeat=n_rep, number=1)
+print('1 form vmap assembly, jitted: ')
+jnp.array([statistics.mean(durations), statistics.stdev(durations), statistics.median(durations)])/nr/nx
+
+
+
+# %%
+# m11 = l2_product(grad_basis_0, grad_basis_0, x_q, w_q)
+# m12 = l2_product(grad_basis_0, grad_basis_1, x_q, w_q)
+# m13 = l2_product(grad_basis_0, grad_basis_2, x_q, w_q)
+# m22 = l2_product(grad_basis_1, grad_basis_1, x_q, w_q)
+# m23 = l2_product(grad_basis_1, grad_basis_2, x_q, w_q)
+# m33 = l2_product(grad_basis_2, grad_basis_2, x_q, w_q)
+
+# _m = jnp.array([[m11, m12, m13], [m12, m22, m23], [m13, m23, m33]])
+
+# # %%
+# plt.plot(jnp.abs(vmap(f_h)(_x) - vmap(f)(_x)))
+# # %%
+# def get_stiffness_matrix_lazy_00(basis_fn, x_q, w_q, F):
+#     DF = jacfwd(F)
+#     def A(k):
+#         return lambda x: inv33(DF(x)).T @ grad(basis_fn)(x, k)
+#         # return lambda x: grad(basis_fn)(x, k)
+#     def E(k):
+#         return lambda x: inv33(DF(x)).T @ grad(basis_fn)(x, k) * jnp.linalg.det(DF(x))
+#         # return lambda x: grad(basis_fn)(x, k)
+#     def M_ij(i, j):
+#         return l2_product(A(i), E(j), x_q, w_q)
+#     return M_ij
+
+# K = assemble(get_stiffness_matrix_lazy_00(basis0, x_q, w_q, F), jnp.arange(N0), jnp.arange(N0))
+# # %%
+# K_fixed = K.at[-1,:].set(1)
+# # %%
+# f_hat_fixed = proj(f).at[-1].set(0)
+# # f_hat_fixed = get_l2_projection(basis0, x_q, w_q, N0)(f).at[-1].set(0)
+# # f_hat_fixed = f_hat.at[-1].set(0)
+# # %%
+# u_hat = jnp.linalg.solve(-K_fixed, f_hat_fixed)
+# # %%
+# def u_h(x):
+#     r, χ, ζ = x
+#     return get_u_h(u_hat, basis0)(x)
+# # %%
+
+# u_h_proj = get_u_h(jnp.linalg.solve(M, proj(u)), basis0)
+
+# # %%
+# plt.contourf(_x1, _x2, vmap(u)(_x).reshape(nx, nx))
+# plt.scatter([0], [0], marker='+', c='w')
+# plt.colorbar()
+# plt.xlabel('R')
+# plt.ylabel('Y')
+
+# # %%
+# plt.contourf(_x1, _x2, vmap(u_h_proj)(_x).reshape(nx, nx))
+# plt.scatter([0], [0], marker='+', c='w')
+# plt.colorbar()
+# plt.xlabel('R')
+# plt.ylabel('Y')
+# # %%
+# plt.contourf(_x1, _x2, vmap(u_h)(_x).reshape(nx, nx))
+# plt.scatter([0], [0], marker='+', c='w')
+# plt.colorbar()
+# plt.xlabel('R')
+# plt.ylabel('Y')
+
+# # %%
+# jnp.sum(jnp.abs(vmap(u_h)(_x) - vmap(u_h_proj)(_x)))
+# # %%
+# jnp.sum(jnp.abs(vmap(u)(_x) - vmap(u_h)(_x)))
+# # %%
+# jnp.sum(jnp.abs(vmap(u)(_x) - vmap(u_h_proj)(_x)))
+# # %%
+
 # %%
