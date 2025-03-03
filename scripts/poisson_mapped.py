@@ -87,18 +87,3 @@ def err(x):
     return jnp.sum((u_h(x) + u(x))**2)
 error = jnp.sqrt(integral(err, x_q, w_q))
 print(f'n = {n}, p = {p}, error = {error}')
-
-# %%
-D = assemble(get_divergence_matrix_lazy_20(basis2, basis0, x_q, w_q, F), jnp.arange(N2), jnp.arange(N0)).T
-
-proj0 = get_l2_projection(basis0, x_q, w_q, N0)
-
-L = D @ jnp.linalg.solve(M22, D.T)
-print(jnp.linalg.cond(L))
-u_hat = jnp.linalg.solve(L, proj0(f))
-u_h = pullback_0form(get_u_h(u_hat, basis0), F_inv)
-def err(x):
-    return jnp.sum((u_h(x) + u(x))**2)
-error = jnp.sqrt(integral(err, x_q, w_q))
-print(f'n = {n}, p = {p}, error = {error}')
-# %%

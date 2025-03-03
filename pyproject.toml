@@ -35,6 +35,7 @@ dependencies = [
     "jaxlib>=0.1.56",
     "scipy>=1.5.4",
     "matplotlib",
+    "plotly",
     "orthax",
     "quadax",
     "optax",

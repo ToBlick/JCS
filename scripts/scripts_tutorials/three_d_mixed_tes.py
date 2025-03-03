@@ -29,15 +29,15 @@ def F(x):
 F_inv = F
 
 def f(x):
-    return 2 * (2 * jnp.pi)**2 * jnp.sin(2 * jnp.pi * x[0]) * jnp.sin(2 * jnp.pi * x[1])
+    return 3 * (jnp.pi)**2 * jnp.sin(jnp.pi * x[0]) * jnp.sin(jnp.pi * x[1]) * jnp.sin(jnp.pi * x[2])
 def u(x):
-    return jnp.sin(jnp.pi * 2 * x[0]) * jnp.sin(2 * jnp.pi * x[1])
+    return jnp.sin(jnp.pi * x[0]) * jnp.sin(jnp.pi * x[1]) * jnp.sin(jnp.pi * x[2])
 
 def get_error(n, p):
-    ns = (n, n, 1)
-    ps = (p, p, 1)
-    types = ('clamped', 'clamped', 'fourier')
-    boundary = ('free', 'free', 'periodic')
+    ns = (n, n, n)
+    ps = (p, p, p)
+    types = ('clamped', 'clamped', 'clamped')
+    boundary = ('free', 'free', 'free')
     basis0, shapes0, N0 = get_zero_form_basis(ns, ps, types, boundary)
     basis1, shapes1, N1 = get_one_form_basis(ns, ps, types, boundary)
     basis2, shapes2, N2 = get_two_form_basis(ns, ps, types, boundary)
@@ -46,7 +46,7 @@ def get_error(n, p):
     x_q, w_q = quadrature_grid(
         get_quadrature_composite(jnp.linspace(0, 1, ns[0] - ps[0] + 1), 15),
         get_quadrature_composite(jnp.linspace(0, 1, ns[1] - ps[1] + 1), 15),
-        get_quadrature_periodic(1)(0,1))
+        get_quadrature_composite(jnp.linspace(0, 1, ns[1] - ps[1] + 1), 15))
 
     Dij = jit(get_divergence_matrix_lazy_23(basis2, basis3, x_q, w_q, F))
     D = assemble(Dij, jnp.arange(N2), jnp.arange(N3)).T
@@ -73,7 +73,6 @@ def get_error(n, p):
     #
     # | M  -D.T | | σ | = |  0   |
     # | D   0   | | u | = | p(f) |
-    #
     ###
 
     u_h = get_u_h(u_hat, basis3)
@@ -86,8 +85,8 @@ def get_error(n, p):
     return error
 
 # %%
-_ns = [10, 14, 18, 22]
-_ps = [1, 2, 3, 4, 5]
+_ns = [4, 6, 8, 10]
+_ps = [1, 2, 3]
 
 import time
 errors = []
@@ -132,4 +131,35 @@ fig.update_layout(
     showlegend=True
 )
 fig.show()
+# %%
+import plotly.graph_objects as go
+arrtimes = jnp.array(times).reshape((len(_ns), len(_ps)))
+fig = go.Figure()
+for (i,p) in enumerate(_ps):
+    fig.add_trace(go.Scatter
+    (
+        x=jnp.array(_ns)**3,
+        y=(arrtimes[:,i]),
+        mode='lines+markers',
+        name=f'p = {p}',
+        marker=dict(symbol='square', color=colors[i]),
+    ))
+fig.add_trace(go.Scatter
+    (
+        x=jnp.array(_ns)[-2:]**3,
+        y=arrtimes[-2,-1] * 1.3 * (jnp.array(_ns)[-2:] / _ns[-2] )**(3 * 2.5),
+        mode='lines',
+        name=f'N^(2.5)',
+        line=dict(dash='dash'),
+        
+    ))
+fig.update_layout(
+    xaxis_title='nx * ny * nz',
+    yaxis_title='computation time [s]',
+    yaxis_type='log',
+    xaxis_type='log',
+    showlegend=True
+)
+fig.show()# %%
+
 # %%

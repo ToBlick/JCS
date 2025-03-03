@@ -50,12 +50,12 @@ def __get_radial_zernike_coeffs(j, J):
     n, m = _unravel_ansi_idx(j)
     n_max, m_max = _unravel_ansi_idx(J)
     k_max = n_max // 2 - 1
-    _k = jnp.arange((n-jnp.abs(m))//2 + 1, dtype=jnp.int64)
+    _k = jnp.arange((n-jnp.abs(m))//2 + 1)
     non_zero_coeffs = vmap(get_radial_zernike_coeff, (0, None))(_k, j)
     return jnp.concatenate([non_zero_coeffs, jnp.zeros(k_max - _k[-1] + 1)])
 
 def _get_radial_zernike_coeffs(J):
-    _j = jnp.arange(J + 1, dtype=jnp.int64)
+    _j = jnp.arange(J + 1)
     return jnp.array([__get_radial_zernike_coeffs(j, J) for j in _j])
 
 # 2D Zernike basis function ψ number j at point x = (r,theta) in [a, b] x [c, d]:
@@ -70,7 +70,7 @@ def get_zernike_fn_x(J, a, b, c, d):
         r, θ = x
         n, l = _unravel_ansi_idx(j)
         m = jnp.abs(l)
-        _k = jnp.arange(len(coeffs[j]), dtype=jnp.int64)
+        _k = jnp.arange(len(coeffs[j]))
         _r = ( (r - a) / Lr )**(n - 2 * _k)
         mθ = (θ - c) / Lθ * 2 * jnp.pi * m
         angular_term = jax.lax.cond(l < 0, jnp.sin, jnp.cos, mθ)
@@ -90,7 +90,7 @@ def get_zernike_fn_radial_derivative(N, a, b, c, d):
         r, θ = x
         n, l = _unravel_ansi_idx(j)
         m = jnp.abs(l)
-        _k = jnp.arange(len(coeffs[j]), dtype=jnp.int64)
+        _k = jnp.arange(len(coeffs[j]))
         _r = ( (r - a) / Lr )**(n - 2 * _k - 1) * (n - 2 * _k) / Lr
         mθ = (θ - c) / Lθ * 2 * jnp.pi * m
         angular_term = jax.lax.cond(l < 0, jnp.sin, jnp.cos, mθ)

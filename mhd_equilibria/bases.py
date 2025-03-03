@@ -54,12 +54,12 @@ def _get_legendre_coeff(k, n):
     return jnp.round(_binom(n, k) * _binom(n + k, k))
 
 def __get_legendre_coeffs(n, N):
-    _k = jnp.arange(n + 1, dtype=jnp.int64)
+    _k = jnp.arange(n + 1)
     non_zero_coeffs = vmap(_get_legendre_coeff, (0, None))(_k, n)
     return jnp.concatenate([non_zero_coeffs, jnp.zeros(N - n)])
 
 def _get_legendre_coeffs(N):
-    _n = jnp.arange(N + 1, dtype=jnp.int64)
+    _n = jnp.arange(N + 1)
     return jnp.array([__get_legendre_coeffs(n, N) for n in _n])
     # return vmap(_get_legendre_coeffs, (0, None), axis_size=N+1)(_n, N)
 
@@ -68,7 +68,7 @@ def _get_legendre_coeffs(N):
 def get_legendre_fn_x(K, a, b):
     coeffs = _get_legendre_coeffs(K)
     def _legendre_fn_x(x, k):
-        _n = jnp.arange(len(coeffs[k]), dtype=jnp.int64)
+        _n = jnp.arange(len(coeffs[k]))
         _x = (-(x - a) / (b-a) )**_n
         return (-1)**k * jnp.sqrt((2*k + 1)/(b-a)) * jnp.dot(coeffs[k, :], _x)
         # _x = (2 * x - a - b) / (b - a)
@@ -85,7 +85,7 @@ def get_chebyshev_fn_x(K, a, b):
 
 def get_polynomial_basis_fn(coeffs, a, b):
     def _basis_fn(x, k):
-        _n = jnp.arange(len(coeffs[k]), dtype=jnp.int64)
+        _n = jnp.arange(len(coeffs[k]))
         _x = ( -(x-a)/(b-a) )**_n
         return jnp.dot(coeffs[k], _x)
     return _basis_fn
