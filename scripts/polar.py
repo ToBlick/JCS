@@ -144,7 +144,7 @@ _x3 = jnp.zeros(1)
 _x = jnp.array(jnp.meshgrid(_x1, _x2, _x3))
 _x = _x.transpose(1, 2, 3, 0).reshape(nx*nx*1, 3)
 
-plt.contourf(_x1, _x2, vmap(basis0, (0, None))(_x, 0).reshape(nx, nx))
+plt.contourf(_x1, _x2, vmap(basis0, (0, None))(_x, 10).reshape(nx, nx))
 plt.colorbar()
 
 # %%
@@ -215,6 +215,57 @@ plt.colorbar()
 plt.xlabel('R')
 plt.ylabel('Y')
 
+# %%
+# Stiffness Matrix
+########
+"""
+    Lazy stiffness matrix function for two zero-forms: 
+    M_ij = ∫ (DF.-T ∇ϕ_i).T DF.-T ∇ϕ_j det DF dξ
+"""
+def get_stiffness_matrix_lazy(basis_fn, x_q, w_q, F):
+    DF = jacfwd(F)
+    def A(k):
+        return lambda x: inv33(DF(x)).T @ grad(basis_fn)(x, k)
+    def E(k):
+        return lambda x: inv33(DF(x)).T @ grad(basis_fn)(x, k) * jnp.linalg.det(DF(x))
+    def M_ij(i, j):
+        return l2_product(A(i), E(j), x_q, w_q)
+    return M_ij
+
+# omit outer ring!
+K = assemble((get_stiffness_matrix_lazy(basis0, x_q, w_q, F)), jnp.arange(N0-ns[1]), jnp.arange(N0-ns[1]))
+
+M00_dbc = assemble_full_vmap(get_mass_matrix_lazy_00(basis0, x_q, w_q, F), jnp.arange(N0-ns[1]), jnp.arange(N0-ns[1]))
+# %%
+# Analytical test case:
+# -Δu = 4
+# - 1/r ∂r (r ∂r u) = 4
+# -> - ∂r (r ∂r u) = 4r
+# -> - r ∂r u = 2r² + c1
+# -> - ∂r u = 2r + c1/r
+# -> u = - r² - c1 log r - c2
+# Dirichlet BC: u(r) = 1 - r²
+
+g = lambda x: 4
+proj_dbc = get_0form_projection(basis0, x_q, w_q, N0-ns[1], F)
+rhs = proj_dbc(g)
+
+# %%
+u_hat = jnp.linalg.solve(K, rhs)
+u_h = get_u_h(u_hat, basis0)
+
+plt.contourf(_y1, _y2, vmap(u_h)(_x).reshape(nx, nx))
+plt.scatter([0], [0], marker='+', c='w')
+plt.colorbar()
+plt.xlabel('R')
+plt.ylabel('Y')
+
+# %%
+u_analytic = lambda x: 1 - x[0]**2
+# %%
+u_hat_an = jnp.linalg.solve(M00_dbc, proj_dbc(u_analytic))
+print("L2 error: ", jnp.sqrt( (u_hat_an - u_hat) @ M00_dbc @ (u_hat_an - u_hat) / (u_hat_an @ M00_dbc @ u_hat_an) ))
+print("H1 error: ", jnp.sqrt( (u_hat_an - u_hat) @ K @ (u_hat_an - u_hat) / (u_hat_an @ K @ u_hat_an) ))
 # %%
 
 ### one forms: two new basis functions

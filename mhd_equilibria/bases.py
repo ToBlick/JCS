@@ -139,13 +139,13 @@ def construct_tensor_basis(shape, Omega):
 ###
 
 def get_u_h_vec(u_hat, basis_fn):
-    _k = jnp.arange(len(u_hat), dtype=jnp.int32)
+    _k = jnp.arange(len(u_hat))
     def u_h(x):
         return vmap(basis_fn, (None, 0), out_axes=1)(x, _k) @ u_hat
     return u_h
 
 def get_u_h(u_hat, basis_fn):
-    _k = jnp.arange(len(u_hat), dtype=jnp.int32)
+    _k = jnp.arange(len(u_hat))
     def u_h(x):
         return jnp.sum(u_hat * vmap(basis_fn, (None, 0))(x, _k))
     return u_h
