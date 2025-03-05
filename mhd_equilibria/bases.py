@@ -126,13 +126,13 @@ def get_tensor_basis_fn(bases, shape):
         return jnp.prod( jnp.array( [ bases[j](x[j], _k[j]) for j in range(d)] ) )
     return basis_fn
 
-def construct_tensor_basis(shape, Omega):
-    n_r, n_θ, n_φ = shape
-    bases = (get_legendre_fn_x(n_r, *Omega[0]), 
-             get_trig_fn(n_θ, *Omega[1]),
-             get_trig_fn(n_φ, *Omega[2]))
-    basis_fn = get_tensor_basis_fn(bases, shape)
-    return basis_fn
+# def construct_tensor_basis(shape, Omega):
+#     n_r, n_θ, n_φ = shape
+#     bases = (get_legendre_fn_x(n_r, *Omega[0]), 
+#              get_trig_fn(n_θ, *Omega[1]),
+#              get_trig_fn(n_φ, *Omega[2]))
+#     basis_fn = get_tensor_basis_fn(bases, shape)
+#     return basis_fn
 
 ###
 # Discrete functions
