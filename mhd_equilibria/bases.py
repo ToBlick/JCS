@@ -9,7 +9,6 @@ __all__ = ['_trig_fn', 'get_trig_fn', '_binom',
     '_get_legendre_coeff', '__get_legendre_coeffs', '_get_legendre_coeffs',
     'get_legendre_fn_x', 'get_chebyshev_fn_x', 'get_polynomial_basis_fn',
     '_lin_to_cart', 'get_tensor_basis_fn',
-    'construct_tensor_basis',
     'get_u_h_vec', 'get_u_h']
 
 ### ! TODO:
