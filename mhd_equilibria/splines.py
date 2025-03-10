@@ -10,8 +10,8 @@ __all__ = [
     "spline",
     "knot_vector",
     "get_spline",
+    "get_deriv_spline"
 ]
-# TODO: Splines right now only work on [0, 1]
 # TODO: NaN bug when differentiating splines of order 4 or higher
 
 def indicator(x, i, T, p, n):
@@ -79,6 +79,25 @@ def get_spline(n, p, type='clamped'):
         T = knot_vector(n, p, type)
         def _spline(x, i):
             return spline(x, i, T, p, n, 'clamped')
+    return _spline
+
+def get_deriv_spline(n, p, type='clamped'):
+    if type == 'periodic':
+        n = n + p
+        T = knot_vector(n, p, type)
+        def _spline(x, i):
+            i = i + p
+            return jax.lax.cond(i > n - 2*p,
+                lambda _: spline(x, i+1, T, p-1, n, 'periodic') * p / (T[i+p+1] - T[i+1]) \
+                        + spline(x, i+1-n+p, T, p-1, n, 'periodic') * p / (T[i+p+1] - T[i+1]),
+                lambda _: spline(x, i+1, T, p-1, n, 'periodic') * p / (T[i+p+1] - T[i+1]),
+                operand=None)
+    elif type == 'clamped':
+        T = knot_vector(n, p, type)
+        def __spline(x, i):
+            return spline(x, i+1, T, p-1, n, 'clamped') * p / (T[i+p+1] - T[i+1])
+        def _spline(x, i):
+            return jax.lax.cond(i < n-1, lambda _: __spline(x, i), lambda _: 0.0, operand=None)
     return _spline
 
 

@@ -50,8 +50,6 @@ def inner_product_0form(u, v, F):
         return u(x) * v(x) * J
     return integrand
     
-    
-    
 
 # jax does not have these hardcoded, so this is a speedup of ~30x
 

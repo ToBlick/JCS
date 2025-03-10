@@ -97,11 +97,11 @@ def get_vector_basis_fn(bases, shape):
                   the index I, while the other components will be zero.
     """
     def basis_fn_0(x, i):
-        return jnp.zeros(3).at[0].set(bases[0](x, i))
+        return bases[0](x, i)
     def basis_fn_1(x, i):
-        return jnp.zeros(3).at[1].set(bases[1](x, i - shape[0]))
+        return bases[1](x, i - shape[0])
     def basis_fn_2(x, i):
-        return jnp.zeros(3).at[2].set(bases[2](x, i - shape[0] - shape[1]))
+        return bases[2](x, i - shape[0] - shape[1])
     def basis_fn(x, I):
         return jax.lax.cond(I < shape[0], basis_fn_0, basis_fn_1_or_2, x, I)
     def basis_fn_1_or_2(x, I):
@@ -253,7 +253,14 @@ def get_one_form_basis(ns, ps, types, boundary):
     basis1_2 = get_tensor_basis_fn( (basis_r, basis_dθ, basis_ζ), shapes1[1])
     basis1_3 = get_tensor_basis_fn( (basis_r, basis_θ, basis_dζ), shapes1[2])
     
-    basis1 = get_vector_basis_fn( (basis1_1, basis1_2, basis1_3), jnp.prod(shapes1, axis=1))
+    def _basis1_1(x, i):
+        return jnp.zeros(3).at[0].set(basis1_1(x, i))
+    def _basis1_2(x, i):
+        return jnp.zeros(3).at[1].set(basis1_2(x, i))
+    def _basis1_3(x, i):
+        return jnp.zeros(3).at[2].set(basis1_3(x, i))
+    
+    basis1 = get_vector_basis_fn( (_basis1_1, _basis1_2, _basis1_3), jnp.prod(shapes1, axis=1))
 
     N1 = jnp.sum(jnp.prod(shapes1, axis=1))
     return basis1, shapes1, N1
@@ -329,7 +336,14 @@ def get_two_form_basis(ns, ps, types, boundary):
     basis_2 = get_tensor_basis_fn( (basis_dr, basis_θ, basis_dζ), shapes[1])
     basis_3 = get_tensor_basis_fn( (basis_dr, basis_dθ, basis_ζ), shapes[2])
     
-    basis = get_vector_basis_fn( (basis_1, basis_2, basis_3), jnp.prod(shapes, axis=1))
+    def _basis_1(x, i):
+        return jnp.zeros(3).at[0].set(basis_1(x, i))
+    def _basis_2(x, i):
+        return jnp.zeros(3).at[1].set(basis_2(x, i))
+    def _basis_3(x, i):
+        return jnp.zeros(3).at[2].set(basis_3(x, i))
+    
+    basis = get_vector_basis_fn( (_basis_1, _basis_2, _basis_3), jnp.prod(shapes, axis=1))
 
     N = jnp.sum(jnp.prod(shapes, axis=1))
     return basis, shapes, N

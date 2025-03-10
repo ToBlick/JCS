@@ -160,16 +160,16 @@ def J(α):
     basis0, shape0, N0 = get_polar_zero_form_basis(ns, ps, ξ)
     N0 = (ns[0] - 2) * ns[1] * ns[2] + 3 * ns[2]
 
-    # nx = 64
-    # _x1 = jnp.linspace(1e-6, 1, nx)
-    # _x2 = jnp.linspace(1e-6, 1, nx)
-    # _x3 = jnp.zeros(1)
-    # _x = jnp.array(jnp.meshgrid(_x1, _x2, _x3))
-    # _x = _x.transpose(1, 2, 3, 0).reshape(nx*nx*1, 3)
+    nx = 64
+    _x1 = jnp.linspace(1e-6, 1, nx)
+    _x2 = jnp.linspace(1e-6, 1, nx)
+    _x3 = jnp.zeros(1)
+    _x = jnp.array(jnp.meshgrid(_x1, _x2, _x3))
+    _x = _x.transpose(1, 2, 3, 0).reshape(nx*nx*1, 3)
             
-    # _y = vmap(F)(_x)
-    # _y1 = _y[:,0].reshape(nx, nx)
-    # _y2 = _y[:,1].reshape(nx, nx)
+    _y = vmap(F)(_x)
+    _y1 = _y[:,0].reshape(nx, nx)
+    _y2 = _y[:,1].reshape(nx, nx)
     # plt.contourf(_y1, _y2, vmap(basis0, (0, None))(_x, 0).reshape(nx, nx))
     # plt.scatter([0], [0], marker='+', c='w')
     # plt.colorbar()
@@ -192,6 +192,7 @@ def J(α):
 
     u_hat = jnp.linalg.solve(K, rhs)
     u_h = get_u_h(u_hat, basis0)
+    u_h_vals = vmap(u_h)(_x)
 
     # plt.contourf(_y1, _y2, vmap(u_h)(_x).reshape(nx, nx))
     # plt.scatter([0], [0], marker='+', c='w')
@@ -204,49 +205,57 @@ def J(α):
     # print("L2 error: ", jnp.sqrt( (u_hat_an - u_hat) @ M00_dbc @ (u_hat_an - u_hat) / (u_hat_an @ M00_dbc @ u_hat_an) ))
     # print("H1 error: ", jnp.sqrt( (u_hat_an - u_hat) @ K @ (u_hat_an - u_hat) / (u_hat_an @ K @ u_hat_an) ))
 
-    # u_h_an = get_u_h(u_hat_an, basis0)
+    u_h_an = get_u_h(u_hat_an, basis0)
+    u_h_an_vals = vmap(u_h_an)(_x)
     # plt.contourf(_y1, _y2, vmap(u_h_an)(_x).reshape(nx, nx))
     # plt.scatter([0], [0], marker='+', c='w')
     # plt.colorbar()
     # plt.xlabel('R')
     # plt.ylabel('Y')
     err = jnp.sqrt( (u_hat_an - u_hat) @ M00_dbc @ (u_hat_an - u_hat) / (u_hat_an @ M00_dbc @ u_hat_an) )
-    return err
+    return err, ( _y1, _y2, u_h_vals, u_h_an_vals )
 
 # %%
 import optax
 
-key = jax.random.PRNGKey(123)
-α = 0.2 * jax.random.normal(key, (8,)) / jnp.arange(1, 9)
+key = jax.random.PRNGKey(42)
+α = 0.25 * jax.random.normal(key, (8,)) / jnp.arange(1, 9)
 α = α.at[0].set(1.0)
-value, _grad = jax.value_and_grad(J)(α)
+value, _grad = jax.value_and_grad(J, has_aux=True)(α)
+value, (_y1, _y2, u_h_vals, u_h_an_vals) = value
 
 trace_α = [ α ]
 trace_vals = [ value ]
 trace_grads = [ _grad ]
+trace_y1 = [ _y1 ]
+trace_y2 = [ _y2 ]
+trace_u_h_vals = [ u_h_vals ]
 
 it = 0
 beta = 0.9
 eta = 5e-4
 z = 0
-while jnp.sum(_grad**2)**0.5 > 1e-2 and it < 250:
-    value, _grad = jax.value_and_grad(J)(α)
+while jnp.sum(_grad**2)**0.5 > 1e-2 and it < 200:
+    value, _grad = jax.value_and_grad(J, has_aux=True)(α)
+    value, (_y1, _y2, u_h_vals, u_h_an_vals) = value
     z = beta * z + _grad
     α = α - eta * z
     trace_α.append(α)
     trace_vals.append(value)
     trace_grads.append(_grad)
+    trace_y1.append(_y1)
+    trace_y2.append(_y2)
+    trace_u_h_vals.append(u_h_vals)
+    
     it += 1
     print("Iteration: ", it, "Value: ", value, "Gradient: ", jnp.sum(_grad**2)**0.5)
 # %%
-plt.plot(trace_vals, label='Value')
-plt.plot([ jnp.sqrt(jnp.sum(_grad**2)) for _grad in trace_grads ], label='Gradient norm') 
+plt.plot(trace_vals, label='J(α)')
+# plt.plot([ jnp.sqrt(jnp.sum(_grad**2)) for _grad in trace_grads ], label='Gradient norm') 
 plt.yscale('log')
 plt.xlabel('Iteration')
 plt.legend()
 
-# %%
-print(trace_α[-1])
 # %%
 nα = α.shape[0]
 map_basis_fn = get_tensor_basis_fn((get_trig_fn(nα, 0, 1), ), (nα,))
@@ -262,4 +271,20 @@ for i,α in enumerate(trace_α[::10]):
     def ς(θ):
         return get_u_h(α, map_basis_fn)(θ * jnp.ones(1))
     plt.plot(_θ, vmap(ς)(_θ), color=colscale(i/(len(trace_α[::10])-1)))
+plt.xlabel('θ')
+plt.ylabel('ς(θ)')
+# %%
+i = 200
+nx = 64
+plt.contourf(trace_y1[i], trace_y2[i], trace_u_h_vals[i].reshape(nx, nx))
+plt.scatter([0], [0], marker='+', c='w')
+plt.colorbar()
+plt.xlabel('R')
+plt.ylabel('Y')
+# %%
+plt.contourf(trace_y1[i], trace_y2[i], u_h_an_vals.reshape(nx, nx))
+plt.scatter([0], [0], marker='+', c='w')
+plt.colorbar()
+plt.xlabel('R')
+plt.ylabel('Y')
 # %%

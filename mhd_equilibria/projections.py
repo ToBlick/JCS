@@ -39,8 +39,8 @@ def get_0form_projection(basis_fn, x_q, w_q, n, F):
         return lambda x: basis_fn(x, k)
     def l2_projection(f):
         def f_hat(x):
-            return f(F(x)) * jnp.linalg.det(DF(x))
-        _k = jnp.arange(n, dtype=jnp.int32)
+            return f(x) * jnp.linalg.det(DF(x))
+        _k = jnp.arange(n)
         return vmap(lambda i: l2_product(f_hat, get_basis(i), x_q, w_q))(_k) 
     return l2_projection
 
