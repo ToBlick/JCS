@@ -1,7 +1,8 @@
 import jax.numpy as jnp
-import quadax as quad
 import jax
 from jax import vmap
+from mhd_equilibria.forms import *
+import numpy as np
 
 __all__ = [
     "quadrature_grid",
@@ -37,9 +38,11 @@ def get_quadrature_periodic(n):
 
 def get_quadrature_spectral(n):
     def _get_quadrature(a, b):
-        q = quad.GaussKronrodRule(n, 2)
-        w_q = q._wl * (b - a) / 2
-        _x = (q._xh + 1) / 2 * (b - a) + a
+        q = np.polynomial.legendre.leggauss(n)
+        # Weights
+        w_q = q[1] * (b - a) / 2
+        # Points
+        _x = (q[0] + 1) / 2 * (b - a) + a
         return _x, w_q
     return _get_quadrature
 
@@ -47,9 +50,11 @@ def get_quadrature_composite(T, n):
     # T is the knot vector without multiplicty
     # using the low order (Gauss) integration here
     def _get_quadrature(a, b):
-        q = quad.GaussKronrodRule(n, 2)
-        w_q = q._wl[1::2] * (b - a) / 2
-        x_q = (q._xh[1::2] + 1) / 2 * (b - a) + a
+        #  n is the number of points and weights
+        q = np.polynomial.legendre.leggauss(n)
+        # Transform to interval we want
+        w_q = q[1][1::2] * (b - a) / 2
+        x_q = (q[0][1::2] + 1) / 2 * (b - a) + a
         return x_q, w_q
     a_s = T[:-1]
     b_s = T[1:]
@@ -57,3 +62,14 @@ def get_quadrature_composite(T, n):
     x_q = x_q.reshape(len(a_s)*(n//2))
     w_q = w_q.reshape(len(a_s)*(n//2))
     return x_q, w_q
+
+
+
+
+
+
+
+
+
+
+

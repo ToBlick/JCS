@@ -8,6 +8,7 @@ from jax.lib import xla_bridge
 import jax.experimental.sparse
 from mhd_equilibria.bases import *
 from mhd_equilibria.forms import *
+import mhd_equilibria.forms as mforms
 from mhd_equilibria.quadratures import *
 from mhd_equilibria.splines import *
 from mhd_equilibria.operators import div
@@ -16,7 +17,7 @@ from mhd_equilibria.projections import *
 from mhd_equilibria.pullbacks import *
 
 from functools import partial
-
+# 
 ### Enable double precision
 config.update("jax_enable_x64", True)
 
@@ -24,6 +25,38 @@ config.update("jax_enable_x64", True)
 print(xla_bridge.get_backend().platform)
 
 # %%
+
+# Had to termporarily add back in these definitions because forms wasn't importing; just seeing if new quadrature works
+
+def get_mass_matrix_lazy_33(basis_fn, x_q, w_q, F):
+    DF = jacfwd(F)
+    def f(k):
+        return lambda x: basis_fn(x, k)
+    def g(k):
+        return lambda x: basis_fn(x, k) / jnp.linalg.det(DF(x))
+    def M_ij(i, j):
+        return l2_product(f(i), g(j), x_q, w_q)
+    return M_ij
+def get_divergence_matrix_lazy_23(basis_fn2, basis_fn3, x_q, w_q, F):
+    DF = jacfwd(F)
+    def f(k):
+        phi = lambda x: basis_fn2(x, k)
+        return div(phi)
+    def g(k):
+        return lambda x: basis_fn3(x, k) / jnp.linalg.det(DF(x))
+    def M_ij(i, j):
+        return l2_product(f(i), g(j), x_q, w_q)
+    return M_ij
+
+def get_mass_matrix_lazy_22(basis_fn, x_q, w_q, F):
+    DF = jacfwd(F)
+    def B(k):
+        return lambda x: DF(x) @ basis_fn(x, k)
+    def S(k):
+        return lambda x: DF(x) @ basis_fn(x, k) / jnp.linalg.det(DF(x))
+    def M_ij(i, j):
+        return l2_product(B(i), S(j), x_q, w_q)
+    return M_ij
 alpha = jnp.pi/2
 
 @partial(jit, static_argnums=(1, 2))
@@ -61,7 +94,8 @@ def mismatch(alpha, n, p):
     _x = jnp.array(jnp.meshgrid(_x1, _x2, _x3))
     _x = _x.transpose(1, 2, 3, 0).reshape(nx*nx*1, 3)
 
-    D = assemble(get_divergence_matrix_lazy_23(basis2, basis3, x_q, w_q, F), jnp.arange(N2), jnp.arange(N3)).T
+    # Assemble the mass matrix 
+    D = assemble(get_divergence_matrix_lazy_23(basis2, basis3, (lambda x:x)(x_q), (lambda x:x)(w_q), F), jnp.arange(N2), jnp.arange(N3)).T
     M22 = assemble(get_mass_matrix_lazy_22(basis2, x_q, w_q, F), jnp.arange(N2), jnp.arange(N2))
     def f(x):
         return 2 * (2 * jnp.pi)**2 * jnp.sin(2 * jnp.pi * x[0]) * jnp.sin(2 * jnp.pi * x[1])
