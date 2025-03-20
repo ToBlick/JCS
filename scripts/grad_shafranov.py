@@ -9,7 +9,7 @@ config.update("jax_enable_x64", True)
 from functools import partial
 import numpy.testing as npt
 from jax.experimental.sparse.linalg import spsolve
-
+import scipy as sp
 from mhd_equilibria.bases import *
 from mhd_equilibria.splines import *
 from mhd_equilibria.quadratures import *
@@ -20,6 +20,16 @@ from mhd_equilibria.operators import *
 import matplotlib.pyplot as plt
 
 Omega = ((0, 1), (0, 1), (0, 1))
+
+def get_mass_matrix_lazy_00(basis_fn, x_q, w_q, F):
+    DF = jacfwd(F)
+    def f(k):
+        return lambda x: basis_fn(x, k)
+    def g(k):
+        return lambda x: basis_fn(x, k) * jnp.linalg.det(DF(x))
+    def M_ij(i, j):
+        return l2_product(f(i), g(j), x_q, w_q)
+    return M_ij
 
 ### Analytical solutions
 
@@ -67,6 +77,35 @@ def lambda_analytic(x):
     return (psi_analytic(x)/R**2)
 lambda_analytic_hat = pullback_0form(lambda_analytic, F)
 psi_analytic_hat = pullback_0form(psi_analytic, F)
+
+
+
+
+# Coding in the analytical solution from Wisconsin paper (ideal spheromak)
+
+# x_i1 is the first zero of the J_i Bessel function
+# Set radius 
+a = 0.5
+
+# Set height
+h = 0.5
+
+# First zero of zeroth and first Bessel function
+chi_01 = sp.special.jn_zeros(0,1)
+chi_11 = sp.special.jn_zeros(1,1)
+# lambda_11
+l_11 = chi_11/a
+
+psi_0 = 1
+
+# Define flux function to compare analytic solutions; flux is defined in terms of r and z
+
+def psi_analytic_wisc(x):
+    R, Z, φ = x
+    return psi_0*l_11/chi_01* R*((sp.special.jn(1,l_11*R))/(sp.special.jn(1,chi_01)))*jnp.sin((jnp.pi/h)*Z)
+
+psi_analytic_wisc_hat= pullback_0form(psi_analytic_wisc, F)
+
 
 # %%
 # Bases
@@ -211,7 +250,7 @@ for n in ns:
             R = F(x)[0]
             return R**2 * lambda_h(x)
 
-        # # %%
+        
         # plt.contourf(_R_hat, _Z_hat, vmap(lambda_h)(_x_hat).reshape(nx, nx), levels=50)
         # plt.colorbar()
         # # %%
@@ -232,20 +271,34 @@ for n in ns:
         # plt.contourf(_R_hat, _Z_hat, vmap(psi_proj_h)(_x_hat).reshape(nx, nx), levels=50)
         # plt.colorbar()
 
+
+
+
         def err(f, g):
             def d(x):
                 return f(x) - g(x)
             return l2_product(d, d, x_q, w_q) / l2_product(g, g, x_q, w_q)
 
         print("n = ", n, "p = ", p)
-        print(err(psi_h, psi_analytic_hat))
+        print(err(psi_h, psi_analytic_wisc_hat))
         # print(err(psi_proj_h, psi_analytic_hat))
         # print(err(psi_proj_h, psi_h))
         
-        errors.append(err(psi_h, psi_analytic_hat))
+        errors.append(err(psi_h, psi_analytic_wisc_hat))
 
 # %%
 errors = jnp.array(errors).reshape((len(ns), len(ps)))
+
+
+
+
+# Compare analytic solution to gain information
+
+
+
+
+
+
 
 plt.figure()
 plt.plot(ns, errors[:, 0], label='p = 1')
