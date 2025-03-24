@@ -3,6 +3,7 @@
 from mhd_equilibria.vector_bases import get_vector_basis_fn
 from mhd_equilibria.pullbacks import *
 import jax.numpy as jnp
+import jax
 import matplotlib.pyplot as plt
 from jax import grad, jit, vmap, config, jacfwd
 config.update("jax_enable_x64", True)
@@ -81,6 +82,8 @@ psi_analytic_hat = pullback_0form(psi_analytic, F)
 
 
 
+
+
 # Coding in the analytical solution from Wisconsin paper (ideal spheromak)
 
 # x_i1 is the first zero of the J_i Bessel function
@@ -90,9 +93,9 @@ a = 0.5
 # Set height
 h = 0.5
 
-# First zero of zeroth and first Bessel function
-chi_01 = sp.special.jn_zeros(0,1)
-chi_11 = sp.special.jn_zeros(1,1)
+# First zero of zeroth and first Bessel function. Make sure to covert to jax float.
+chi_01 = jnp.float64(sp.special.jn_zeros(0,1))
+chi_11 = jnp.float64(sp.special.jn_zeros(1,1))
 # lambda_11
 l_11 = chi_11/a
 
@@ -100,18 +103,44 @@ psi_0 = 1
 
 # Define flux function to compare analytic solutions; flux is defined in terms of r and z
 
+
 def psi_analytic_wisc(x):
     R, Z, φ = x
-    return psi_0*l_11/chi_01* R*((sp.special.jn(1,l_11*R))/(sp.special.jn(1,chi_01)))*jnp.sin((jnp.pi/h)*Z)
+    return psi_0*l_11/chi_01* R*((jnp.float64(sp.special.jn(1,l_11*2)))/( jnp.float64(sp.special.jn(1,chi_01))))*jnp.sin((jnp.pi/h)*Z)
 
-psi_analytic_wisc_hat= pullback_0form(psi_analytic_wisc, F)
 
+# Replace 2 with R
+
+
+
+# # Using Jit to wrap function to ensure compatability with JAX
+# @jax.jit
+# def wisc_callback(x):
+#   result_shape = jax.core.ShapedArray(x.shape, x.dtype)
+#   return jax.pure_callback(psi_analytic_wisc, result_shape, x)
+
+
+
+# @jax.jit
+# def wisc_callback(x):
+#   return jax.vmap(jax.vmap(psi_analytic_wisc))(x)
+
+
+
+psi_analytic_wisc_hat = pullback_0form(psi_analytic_wisc, F)
+
+
+# Analytic functions, in the context
 
 # %%
 # Bases
 errors = []
+
+# number of n points
 ns = [5, 8, 10, 16]
+# number of p points
 ps = [1, 2, 3, 4]
+
 import time
 for n in ns:
     for p in ps:
